@@ -16,6 +16,7 @@ Blueprint, design baseline 0.1 (4 November 2026)*.
 | F02 | Project record, migrations, events/projections, trusted grant and decision store | **Done** (see scope notes) |
 | D01 | `project.summary`: the standup skill as deterministic code over the event log, with time travel | **Done** |
 | F03 | Artifact store, workspace snapshots, approved source roots | **Done** |
+| F04 | Four-layer authorization; Linux namespace sandbox with cgroup limits; output collector; Podman/VM backends report unavailable | **Done** (Linux backend is for trusted code only; see below) |
 | F04–F24 | Isolation, evaluation, engine, jobs, API/CLI, model gateway, packs, editor, ... | Not started |
 | D02–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
 
@@ -106,7 +107,14 @@ These are deliberate and recorded so later tickets do not assume otherwise.
    an unverified "done".
 4. **`source_roots` are labels.** Binding a label to a host directory is
    trusted user-level configuration, added with snapshots in F03.
-5. **Windows file locking** uses `msvcrt` and is exercised only by the
+5. **Linux isolation backend.** The blueprint's first backend is rootless
+   Podman. Podman and bubblewrap were not installable where FORGE was built,
+   so `forge/sandbox/linux_ns.py` composes the same kernel features
+   (namespaces, pivot_root, setpriv, cgroups) and passes the EX-T03/T04/T05
+   admission tests. It requires root, has no seccomp filter, shares the host
+   kernel, and reports `suitable_for_hostile_code: false`. Unknown binaries
+   need the disposable VM profile, which is not built.
+6. **Windows file locking** uses `msvcrt` and is exercised only by the
    Windows CI job, not by the Linux environment where this was written.
 
 ## Contributing rule
