@@ -568,7 +568,7 @@ FORGE primitive, built once and reused by every capability.
 | 11 | Human checkpoints (every set) | decision cards bound to proposal digests | done F02 |
 | 12 | Untrusted content fencing (artifact-emulator, deep-research, file-reading) | renderer escaping; retrieved text passed to models as marked data | F10, F14 |
 | 13 | Held-out evaluation against a baseline (skill-creator only) | capability evaluation harness | D11 |
-| 14 | Shared work item, risk, decision, dependency and metric shapes (PM, close-management) | shared record contracts | D01 |
+| 14 | Shared work item, risk, decision, dependency and metric shapes (PM, close-management) | shared record contracts | task, decision, dependency done (F02); finding D02, metric D03/D09, risk D10 |
 | 15 | Degrade by available capability (general set) | `missing_capability`, `not_run`, `blocked` instead of guessing | done F02 |
 | 16 | Explicit anti-pattern lists (learn, frontend-design, mcp-builder) | negative test cases in each capability's evaluation set | D11 |
 
@@ -612,7 +612,7 @@ foundation. Each D ticket ships with failure tests, like every F ticket.
 
 | ID | Depends on | Work | Acceptance result |
 |---|---|---|---|
-| D01 | F02 (done) | Shared record contracts for finding, risk and metric (with declared direction); `project.summary` renderer from the event log (the standup skill as pure code) | Summary for a seeded project lists completed, running, blocked-with-reason and pending decisions exactly; no model involved; replaying events gives the identical summary |
+| D01 | F02 (done) | `project.summary` from the event log (the standup skill as pure code), with time travel to any event and a Markdown standup renderer. **Done.** Scope change: the finding, risk and metric record contracts first planned here moved to the tickets that first create those records (finding → D02, metric with declared direction → D03/D09, risk → D10), so no record shape is designed before something uses it | Summary for a seeded project lists completed, running, blocked-with-reason and pending decisions exactly; no model involved; replaying events gives the identical summary |
 | D02 | F05 | Rule-pack and rule contracts; analyzer adapter interface normalizing to SARIF-shaped evidence; deterministic severity table and verdict function | An unwaived critical finding forces "request changes"; an analyzer crash yields `error`, not `pass`; duplicate findings collapse by fingerprint |
 | D03 | F05 | Probe library: repeat-run digest comparison, fixed-seed measurement, mutation check that a test can fail | A deliberately non-deterministic fixture is caught; a test that cannot fail is rejected |
 | D04 | F09 | Model-slot contract: flat output schemas within llama.cpp's supported subset, full re-validation, citation and fact-lock validators, count/length/template/banned-word validators, retry budget, fallback | A slot answer citing a nonexistent line, misquoting source, or stating a number different from the record is rejected; budget exhaustion yields a decision card, not a guess |

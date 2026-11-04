@@ -4,9 +4,9 @@ An offline software engineering controller, built from the *FORGE Engineering
 Blueprint, design baseline 0.1 (4 November 2026)*.
 
 > **Status: early construction.** Tickets F01 and F02 (blueprint Session 1)
-> are implemented and tested. FORGE does **not** yet run code, call a model,
-> capture snapshots, or provide an editor extension. Nothing here is
-> security-qualified.
+> and D01 (project summary as code) are implemented and tested. FORGE does
+> **not** yet run code, call a model, capture snapshots, or provide an editor
+> extension. Nothing here is security-qualified.
 
 ## What exists today
 
@@ -14,8 +14,10 @@ Blueprint, design baseline 0.1 (4 November 2026)*.
 |---|---|---|
 | F01 | Package, contract versions, ID/digest/time conventions, offline JSON Schemas | **Done** |
 | F02 | Project record, migrations, events/projections, trusted grant and decision store | **Done** (see scope notes) |
+| D01 | `project.summary`: the standup skill as deterministic code over the event log, with time travel | **Done** |
 | F03 | Artifact store, workspace snapshots | Next |
 | F04–F24 | Isolation, evaluation, engine, jobs, API/CLI, model gateway, packs, editor, ... | Not started |
+| D02–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
 
 Acceptance results checked by the test suite (`tests/`):
 
@@ -29,6 +31,10 @@ Acceptance results checked by the test suite (`tests/`):
 - A dependency cycle cannot be committed; stale-version updates do not
   overwrite newer data. *(build step C2)*
 - Replaying the event log rebuilds exactly the live projection tables.
+- The project summary lists done, running, ready, blocked-with-reason,
+  waiting and pending-decision items exactly, with no model involved; a
+  summary rebuilt from the event log is identical to one read live; hostile
+  titles cannot inject Markdown or HTML into the report. *(D01)*
 
 ## Try it
 
@@ -54,6 +60,10 @@ python -m venv .venv
 .venv/bin/forge-dev inspect --root forge-data
 ```
 
+```bash
+.venv/bin/forge-dev summary --root forge-data
+```
+
 (On Windows use `.venv\Scripts\` instead of `.venv/bin/`.)
 
 The walkthrough for this stage is in
@@ -72,6 +82,7 @@ forge/record/      SQLite connection, migrations, event log, projections, single
 forge/authority/   user-level trust store (grants); repository grant files -> proposals only
 forge/engine/      dependency-cycle detection and the task status transition table
 forge/controller/  apply_command: the only path that changes project state
+forge/reports/     deterministic reports over records (project summary, standup)
 forge/cli.py       development CLI (in-process; replaced by the RPC client in F08)
 tests/             acceptance and failure tests
 ```

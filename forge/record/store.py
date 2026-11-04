@@ -3,12 +3,18 @@
 Only the controller writes through this store. Other modules (editor, CLI,
 model gateway, execution hosts) submit commands to the controller; they never
 open state.db for writing.
+
+Reads live in RecordReader so the same code can read either the live
+database or a scratch copy rebuilt by replaying the event log up to a chosen
+point ("what did the project look like at event 12?").
 """
 
 from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -25,45 +31,11 @@ DEFAULT_PAGE = 50
 MAX_PAGE = 200
 
 
-class ProjectStore:
-    def __init__(self, path: Path, conn: sqlite3.Connection, lock: ProjectLock) -> None:
-        self.path = path
+class RecordReader:
+    """Typed, read-only queries over one project database connection."""
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
         self.conn = conn
-        self._lock = lock
-
-    # ------------------------------------------------------------ lifecycle
-
-    @classmethod
-    def open(cls, path: Path, clock: Clock | None = None) -> ProjectStore:
-        """Acquire the single-writer lock, open the database, apply migrations."""
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        lock = ProjectLock(path.with_name(path.name + ".lock"))
-        lock.acquire()
-        conn: sqlite3.Connection | None = None
-        try:
-            conn = open_connection(path)
-            migrate(conn, clock or SystemClock())
-        except BaseException:
-            if conn is not None:
-                conn.close()
-            lock.release()
-            raise
-        return cls(path, conn, lock)
-
-    def close(self) -> None:
-        try:
-            self.conn.close()
-        finally:
-            self._lock.release()
-
-    def __enter__(self) -> ProjectStore:
-        return self
-
-    def __exit__(self, *exc_info: object) -> None:
-        self.close()
-
-    # ----------------------------------------------------------------- reads
 
     def project(self) -> Project | None:
         row = self.conn.execute("SELECT * FROM projects").fetchone()
@@ -120,6 +92,17 @@ class ProjectStore:
         values.append(limit)
         return [self._task_from_row(row) for row in self.conn.execute(sql, values)]
 
+    def iter_tasks(self, *, status: str | None = None) -> Iterator[Task]:
+        """Every task (optionally of one status), fetched page by page."""
+        after: str | None = None
+        while page := self.tasks(status=status, after_task_id=after, limit=MAX_PAGE):
+            yield from page
+            after = page[-1].task_id
+
+    def status_counts(self) -> dict[str, int]:
+        rows = self.conn.execute("SELECT status, COUNT(*) FROM tasks GROUP BY status")
+        return {row[0]: row[1] for row in rows}
+
     def dependencies(self, task_id: str) -> list[str]:
         rows = self.conn.execute(
             "SELECT depends_on_task_id FROM task_dependencies WHERE task_id = ?"
@@ -153,22 +136,16 @@ class ProjectStore:
         row = self.conn.execute(
             "SELECT * FROM decisions WHERE decision_id = ?", (decision_id,)
         ).fetchone()
-        if row is None:
-            return None
-        return Decision(
-            **_common(row),
-            decision_id=row["decision_id"],
-            decision_kind=row["decision_kind"],
-            subject_ref=json.loads(row["subject_ref_json"]),
-            question=row["question"],
-            proposal_digest=row["proposal_digest"],
-            disposition=row["disposition"],
-            reason=row["reason"],
-            actor_id=row["actor_id"],
-            authority_ref=row["authority_ref"],
-            expires_at=row["expires_at"],
-            updated_at=row["updated_at"],
-        )
+        return None if row is None else _decision_from_row(row)
+
+    def decisions(self, *, disposition: str | None = None) -> list[Decision]:
+        sql = "SELECT * FROM decisions"
+        values: list[Any] = []
+        if disposition is not None:
+            sql += " WHERE disposition = ?"
+            values.append(disposition)
+        sql += " ORDER BY created_at, decision_id"
+        return [_decision_from_row(row) for row in self.conn.execute(sql, values)]
 
     def events(self, *, after_seq: int = 0, limit: int = DEFAULT_PAGE) -> list[EventRecord]:
         limit = max(1, min(int(limit), MAX_PAGE))
@@ -178,11 +155,66 @@ class ProjectStore:
         )
         return [row_to_event(row) for row in rows]
 
+    def iter_events(
+        self, *, after_seq: int = 0, through_seq: int | None = None, event_types: tuple[str, ...] = ()
+    ) -> Iterator[EventRecord]:
+        """Events in (after_seq, through_seq], oldest first, optionally filtered by type."""
+        sql = "SELECT * FROM events WHERE event_seq > ?"
+        values: list[Any] = [int(after_seq)]
+        if through_seq is not None:
+            sql += " AND event_seq <= ?"
+            values.append(int(through_seq))
+        if event_types:
+            sql += " AND event_type IN (" + ", ".join("?" for _ in event_types) + ")"
+            values.extend(event_types)
+        sql += " ORDER BY event_seq"
+        for row in self.conn.execute(sql, values):
+            yield row_to_event(row)
+
     def find_receipt(self, actor_id: str, idempotency_key: str) -> sqlite3.Row | None:
         return self.conn.execute(
             "SELECT * FROM command_receipts WHERE actor_id = ? AND idempotency_key = ?",
             (actor_id, idempotency_key),
         ).fetchone()
+
+
+class ProjectStore(RecordReader):
+    def __init__(self, path: Path, conn: sqlite3.Connection, lock: ProjectLock) -> None:
+        super().__init__(conn)
+        self.path = path
+        self._lock = lock
+
+    # ------------------------------------------------------------ lifecycle
+
+    @classmethod
+    def open(cls, path: Path, clock: Clock | None = None) -> ProjectStore:
+        """Acquire the single-writer lock, open the database, apply migrations."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lock = ProjectLock(path.with_name(path.name + ".lock"))
+        lock.acquire()
+        conn: sqlite3.Connection | None = None
+        try:
+            conn = open_connection(path)
+            migrate(conn, clock or SystemClock())
+        except BaseException:
+            if conn is not None:
+                conn.close()
+            lock.release()
+            raise
+        return cls(path, conn, lock)
+
+    def close(self) -> None:
+        try:
+            self.conn.close()
+        finally:
+            self._lock.release()
+
+    def __enter__(self) -> ProjectStore:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()
 
     # ----------------------------------------------------------- maintenance
 
@@ -196,37 +228,55 @@ class ProjectStore:
         with write_transaction(self.conn):
             for table in PROJECTION_TABLES:
                 self.conn.execute(f"DELETE FROM {table}")  # noqa: S608 - fixed table names
-            after = 0
-            while True:
-                batch = self.events(after_seq=after, limit=MAX_PAGE)
-                if not batch:
-                    break
-                for event in batch:
-                    apply_event(self.conn, event)
-                    count += 1
-                after = batch[-1].event_seq
+            for event in self.iter_events():
+                apply_event(self.conn, event)
+                count += 1
         return count
 
-    def verify_projections(self) -> list[str]:
-        """Replay events into a scratch in-memory database and compare.
+    @contextmanager
+    def replayed(self, through_seq: int | None = None) -> Iterator[RecordReader]:
+        """A reader over a scratch in-memory database rebuilt from the event log.
 
-        Returns a list of differences (empty means the live projections are
-        exactly what the event log implies). The live database is not changed.
+        Events after through_seq are not applied, so the reader shows the
+        project exactly as it stood at that event. The live database is not
+        changed. The scratch copy holds the events too, so event queries on
+        the reader also stop at through_seq.
         """
+        latest = self.last_event_seq()
+        through = latest if through_seq is None else int(through_seq)
+        if not 0 <= through <= latest:
+            raise ForgeError(
+                ErrorCode.INVALID_REQUEST,
+                f"event sequence {through} is outside this project's log (0 to {latest})",
+            )
         scratch = sqlite3.connect(":memory:", isolation_level=None)
         scratch.row_factory = sqlite3.Row
         try:
             scratch.execute("PRAGMA foreign_keys = ON")
             migrate(scratch, SystemClock())
             with write_transaction(scratch):
-                after = 0
-                while batch := self.events(after_seq=after, limit=MAX_PAGE):
-                    for event in batch:
-                        apply_event(scratch, event)
-                    after = batch[-1].event_seq
-            expected = dump_projections(scratch)
+                for row in self.conn.execute(
+                    "SELECT * FROM events WHERE event_seq <= ? ORDER BY event_seq", (through,)
+                ):
+                    scratch.execute(
+                        "INSERT INTO events (event_seq, event_id, project_id, command_id, event_type,"
+                        " event_schema_version, actor_id, occurred_at, causation_id, payload_json)"
+                        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        tuple(row),
+                    )
+                    apply_event(scratch, row_to_event(row))
+            yield RecordReader(scratch)
         finally:
             scratch.close()
+
+    def verify_projections(self) -> list[str]:
+        """Replay events into a scratch database and compare with the live tables.
+
+        Returns a list of differences (empty means the live projections are
+        exactly what the event log implies). The live database is not changed.
+        """
+        with self.replayed() as replay:
+            expected = dump_projections(replay.conn)
         actual = dump_projections(self.conn)
         differences = []
         for table in expected:
@@ -252,3 +302,20 @@ def _common(row: sqlite3.Row) -> dict[str, Any]:
         "created_by": row["created_by"],
         "record_version": row["record_version"],
     }
+
+
+def _decision_from_row(row: sqlite3.Row) -> Decision:
+    return Decision(
+        **_common(row),
+        decision_id=row["decision_id"],
+        decision_kind=row["decision_kind"],
+        subject_ref=json.loads(row["subject_ref_json"]),
+        question=row["question"],
+        proposal_digest=row["proposal_digest"],
+        disposition=row["disposition"],
+        reason=row["reason"],
+        actor_id=row["actor_id"],
+        authority_ref=row["authority_ref"],
+        expires_at=row["expires_at"],
+        updated_at=row["updated_at"],
+    )

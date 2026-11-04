@@ -22,6 +22,7 @@ from typing import Any
 
 from forge.contracts import commands, records
 from forge.contracts.errors import ErrorCode, ForgeError, safe_preview
+from forge.reports.summary import ProjectSummary
 
 SCHEMA_MODELS = {
     "command_envelope": commands.CommandEnvelope,
@@ -40,6 +41,7 @@ SCHEMA_MODELS = {
     "record.task": records.Task,
     "record.decision": records.Decision,
     "record.event": records.EventRecord,
+    "report.project_summary": ProjectSummary,
 }
 
 _SCHEMA_DIR = "schemas"

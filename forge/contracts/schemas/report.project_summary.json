@@ -1,0 +1,530 @@
+{
+  "$defs": {
+    "DecidedLine": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_id": {
+          "pattern": "^decision_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "decision_kind": {
+          "enum": [
+            "apply_change",
+            "waiver",
+            "architecture",
+            "grant",
+            "release"
+          ],
+          "title": "Decision Kind",
+          "type": "string"
+        },
+        "disposition": {
+          "title": "Disposition",
+          "type": "string"
+        },
+        "event_seq": {
+          "title": "Event Seq",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision_id",
+        "decision_kind",
+        "question",
+        "disposition",
+        "reason",
+        "event_seq",
+        "occurred_at"
+      ],
+      "title": "DecidedLine",
+      "type": "object"
+    },
+    "DecisionLine": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_id": {
+          "pattern": "^decision_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "decision_kind": {
+          "enum": [
+            "apply_change",
+            "waiver",
+            "architecture",
+            "grant",
+            "release"
+          ],
+          "title": "Decision Kind",
+          "type": "string"
+        },
+        "expired": {
+          "title": "Expired",
+          "type": "boolean"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expires At"
+        },
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "requested_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+          "title": "Requested At",
+          "type": "string"
+        },
+        "subject_ref": {
+          "$ref": "#/$defs/RevisionRef"
+        }
+      },
+      "required": [
+        "decision_id",
+        "decision_kind",
+        "question",
+        "subject_ref",
+        "expires_at",
+        "expired",
+        "requested_at"
+      ],
+      "title": "DecisionLine",
+      "type": "object"
+    },
+    "RevisionRef": {
+      "additionalProperties": false,
+      "description": "A reference to a specific revision of a record.\n\nMeaning can change between revisions, so a test assessed against\nrequirement revision 2 must not silently satisfy revision 3.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z]+_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "RevisionRef",
+      "type": "object"
+    },
+    "Section_DecidedLine_": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/DecidedLine"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "items"
+      ],
+      "title": "Section[DecidedLine]",
+      "type": "object"
+    },
+    "Section_DecisionLine_": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/DecisionLine"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "items"
+      ],
+      "title": "Section[DecisionLine]",
+      "type": "object"
+    },
+    "Section_TaskChangeLine_": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/TaskChangeLine"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "items"
+      ],
+      "title": "Section[TaskChangeLine]",
+      "type": "object"
+    },
+    "Section_TaskLine_": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/TaskLine"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "items"
+      ],
+      "title": "Section[TaskLine]",
+      "type": "object"
+    },
+    "Section_WaitingLine_": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/WaitingLine"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "items"
+      ],
+      "title": "Section[WaitingLine]",
+      "type": "object"
+    },
+    "TaskChangeLine": {
+      "additionalProperties": false,
+      "description": "A task plus the status change that put it in this section.",
+      "properties": {
+        "event_seq": {
+          "title": "Event Seq",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "record_version": {
+          "title": "Record Version",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "blocked",
+            "waiting_for_user",
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_type": {
+          "enum": [
+            "prepare",
+            "execute",
+            "assess",
+            "decide"
+          ],
+          "title": "Task Type",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "title",
+        "task_type",
+        "status",
+        "record_version",
+        "event_seq",
+        "occurred_at",
+        "reason"
+      ],
+      "title": "TaskChangeLine",
+      "type": "object"
+    },
+    "TaskLine": {
+      "additionalProperties": false,
+      "properties": {
+        "record_version": {
+          "title": "Record Version",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "blocked",
+            "waiting_for_user",
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_type": {
+          "enum": [
+            "prepare",
+            "execute",
+            "assess",
+            "decide"
+          ],
+          "title": "Task Type",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "title",
+        "task_type",
+        "status",
+        "record_version"
+      ],
+      "title": "TaskLine",
+      "type": "object"
+    },
+    "WaitingLine": {
+      "additionalProperties": false,
+      "properties": {
+        "record_version": {
+          "title": "Record Version",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "blocked",
+            "waiting_for_user",
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_type": {
+          "enum": [
+            "prepare",
+            "execute",
+            "assess",
+            "decide"
+          ],
+          "title": "Task Type",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "waiting_on": {
+          "items": {
+            "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "title": "Waiting On",
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_id",
+        "title",
+        "task_type",
+        "status",
+        "record_version",
+        "waiting_on"
+      ],
+      "title": "WaitingLine",
+      "type": "object"
+    }
+  },
+  "$id": "forge:contracts/report.project_summary",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "activity": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Activity",
+      "type": "object"
+    },
+    "as_of_event_seq": {
+      "minimum": 0,
+      "title": "As Of Event Seq",
+      "type": "integer"
+    },
+    "blocked": {
+      "$ref": "#/$defs/Section_TaskChangeLine_"
+    },
+    "decided": {
+      "$ref": "#/$defs/Section_DecidedLine_"
+    },
+    "done": {
+      "$ref": "#/$defs/Section_TaskChangeLine_"
+    },
+    "ended": {
+      "$ref": "#/$defs/Section_TaskChangeLine_"
+    },
+    "evaluated_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+      "title": "Evaluated At",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "objective": {
+      "title": "Objective",
+      "type": "string"
+    },
+    "pending_decisions": {
+      "$ref": "#/$defs/Section_DecisionLine_"
+    },
+    "project_id": {
+      "pattern": "^project_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "ready": {
+      "$ref": "#/$defs/Section_TaskLine_"
+    },
+    "running": {
+      "$ref": "#/$defs/Section_TaskLine_"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "since_event_seq": {
+      "minimum": 0,
+      "title": "Since Event Seq",
+      "type": "integer"
+    },
+    "status_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Status Counts",
+      "type": "object"
+    },
+    "waiting_for_user": {
+      "$ref": "#/$defs/Section_TaskChangeLine_"
+    },
+    "waiting_on_tasks": {
+      "$ref": "#/$defs/Section_WaitingLine_"
+    }
+  },
+  "required": [
+    "schema_version",
+    "project_id",
+    "name",
+    "objective",
+    "since_event_seq",
+    "as_of_event_seq",
+    "evaluated_at",
+    "status_counts",
+    "done",
+    "ended",
+    "running",
+    "ready",
+    "waiting_on_tasks",
+    "blocked",
+    "waiting_for_user",
+    "pending_decisions",
+    "decided",
+    "activity"
+  ],
+  "title": "ProjectSummary",
+  "type": "object"
+}
