@@ -33,11 +33,13 @@ PYTHON_PACK = PackDescriptor(
     version=1,
     languages=["python"],
     tools=["python", "ruff"],
-    evaluators=["black_box_cases", "analyzer_verdict", "package_install"],
-    task_templates=["build_tool", "review", "bug_fix", "test_strategy", "tech_debt"],
+    evaluators=["black_box_cases", "analyzer_verdict", "package_install", "unit_tests", "mutation_score",
+                "performance_comparison"],
+    task_templates=["build_tool", "review", "bug_fix", "test_strategy", "tech_debt", "tdd_cycle"],
     selected_by_facts=["language.python", "build.python_packaging"],
     limitations=[
-        "white-box test runners (pytest inside the sandbox) are not admitted yet; behavior is assessed black-box",
+        "unit tests run with FORGE's standard-library runner (unittest classes and plain test functions);"
+        " pytest fixtures and plugins are not supported, and in-process results are workflow evidence only",
         "type checking (mypy) is not admitted yet",
         "evidence is produced on the Linux backend only; other platforms are not_run",
     ],
