@@ -16,12 +16,14 @@ from forge.contracts.digests import Digest
 from forge.contracts.ids import (
     ActorId,
     AnyId,
+    ArtifactId,
     ControllerId,
     CriterionId,
     DecisionId,
     GrantId,
     ProjectId,
     RequirementId,
+    SnapshotId,
     TaskId,
 )
 
@@ -108,6 +110,38 @@ class Decision(CommonFields):
     authority_ref: GrantId | None
     expires_at: Timestamp | None
     updated_at: Timestamp
+
+
+Sensitivity = Literal["public", "project", "sensitive"]
+Retention = Literal["keep", "ephemeral"]
+
+
+class Artifact(CommonFields):
+    artifact_id: ArtifactId
+    digest: Digest
+    size: int = Field(ge=0)
+    content_type: str
+    artifact_kind: Slug
+    sensitivity: Sensitivity
+    retention: Retention
+    producer_ref: AnyId | None
+    tombstoned_at: Timestamp | None
+    tombstone_reason: str | None
+
+
+class Snapshot(CommonFields):
+    snapshot_id: SnapshotId
+    manifest_digest: Digest
+    manifest_artifact_id: ArtifactId
+    source_root: Slug
+    base_commit: str | None
+    capture_policy_revision: int
+    file_count: int = Field(ge=0)
+    total_bytes: int = Field(ge=0)
+    excluded_count: int = Field(ge=0)
+    dirty_paths: list[str]
+    parent_snapshot_id: SnapshotId | None
+    origin: Literal["capture", "candidate"]
 
 
 class EventRecord(StrictModel):

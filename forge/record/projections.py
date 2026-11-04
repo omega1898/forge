@@ -28,7 +28,9 @@ from forge.contracts.records import EventRecord
 Projector = Callable[[sqlite3.Connection, EventRecord], None]
 
 # Order matters when clearing: children before parents (foreign keys).
-PROJECTION_TABLES = ("task_dependencies", "decisions", "tasks", "records", "projects")
+PROJECTION_TABLES = (
+    "task_dependencies", "decisions", "tasks", "snapshots", "artifacts", "records", "projects",
+)
 
 
 def _json(value: Any) -> str:
@@ -185,6 +187,71 @@ def _decision_recorded(conn: sqlite3.Connection, event: EventRecord) -> None:
     _expect_one(cursor, event, payload["decision_id"])
 
 
+def _artifact_registered(conn: sqlite3.Connection, event: EventRecord) -> None:
+    artifact = event.payload["artifact"]
+    conn.execute(
+        "INSERT INTO artifacts (artifact_id, project_id, digest, size, content_type, artifact_kind,"
+        " sensitivity, retention, producer_ref, created_at, created_by, record_version)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+        (
+            artifact["artifact_id"],
+            event.project_id,
+            artifact["digest"],
+            artifact["size"],
+            artifact["content_type"],
+            artifact["artifact_kind"],
+            artifact["sensitivity"],
+            artifact["retention"],
+            artifact["producer_ref"],
+            event.occurred_at,
+            event.actor_id,
+        ),
+    )
+
+
+def _artifact_tombstoned(conn: sqlite3.Connection, event: EventRecord) -> None:
+    payload = event.payload
+    cursor = conn.execute(
+        "UPDATE artifacts SET tombstoned_at = ?, tombstone_reason = ?, record_version = ?"
+        " WHERE artifact_id = ? AND record_version = ? AND tombstoned_at IS NULL",
+        (
+            event.occurred_at,
+            payload["reason"],
+            payload["record_version"],
+            payload["artifact_id"],
+            payload["record_version"] - 1,
+        ),
+    )
+    _expect_one(cursor, event, payload["artifact_id"])
+
+
+def _snapshot_captured(conn: sqlite3.Connection, event: EventRecord) -> None:
+    snapshot = event.payload["snapshot"]
+    conn.execute(
+        "INSERT INTO snapshots (snapshot_id, project_id, manifest_digest, manifest_artifact_id,"
+        " source_root, base_commit, capture_policy_revision, file_count, total_bytes,"
+        " excluded_count, dirty_paths_json, parent_snapshot_id, origin, created_at, created_by,"
+        " record_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+        (
+            snapshot["snapshot_id"],
+            event.project_id,
+            snapshot["manifest_digest"],
+            snapshot["manifest_artifact_id"],
+            snapshot["source_root"],
+            snapshot["base_commit"],
+            snapshot["capture_policy_revision"],
+            snapshot["file_count"],
+            snapshot["total_bytes"],
+            snapshot["excluded_count"],
+            _json(snapshot["dirty_paths"]),
+            snapshot["parent_snapshot_id"],
+            snapshot["origin"],
+            event.occurred_at,
+            event.actor_id,
+        ),
+    )
+
+
 PROJECTORS: dict[tuple[str, int], Projector] = {
     ("project.created", 1): _project_created,
     ("requirement.created", 1): _record_created("requirement"),
@@ -194,6 +261,9 @@ PROJECTORS: dict[tuple[str, int], Projector] = {
     ("task.status_changed", 1): _task_status_changed,
     ("decision.requested", 1): _decision_requested,
     ("decision.recorded", 1): _decision_recorded,
+    ("artifact.registered", 1): _artifact_registered,
+    ("artifact.tombstoned", 1): _artifact_tombstoned,
+    ("snapshot.captured", 1): _snapshot_captured,
 }
 
 

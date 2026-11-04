@@ -23,6 +23,7 @@ from forge.contracts.clock import Timestamp
 from forge.contracts.digests import Digest, canonical_json_bytes
 from forge.contracts.errors import ErrorCode, ForgeError
 from forge.contracts.ids import ActorId, AnyId, CommandId, CriterionId, DecisionId, GrantId, ProjectId, TaskId
+from forge.contracts.paths import check_relative_path
 from forge.contracts.records import Budget, DecisionKind, TaskStatus, TaskType, WaiverPolicy
 from forge.contracts.versions import check_schema_version
 
@@ -35,6 +36,7 @@ Method = Literal[
     "task.transition",
     "decision.request",
     "decision.record",
+    "workspace.capture",
 ]
 
 # Methods that change an existing record and therefore must say which version
@@ -172,6 +174,18 @@ class DecisionRecordParams(StrictModel):
     proposal_digest: Digest | None = None
 
 
+class WorkspaceCaptureParams(StrictModel):
+    source_root: Slug
+    # Editor buffers with unsaved changes. Their unsaved text is NOT captured;
+    # the snapshot records that they existed so nobody assumes otherwise.
+    dirty_paths: list[str] = Field(default_factory=list, max_length=256)
+
+    @field_validator("dirty_paths")
+    @classmethod
+    def _relative(cls, value: list[str]) -> list[str]:
+        return [check_relative_path(item) for item in value]
+
+
 PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "project.create": ProjectCreateParams,
     "requirement.create": RequirementCreateParams,
@@ -181,6 +195,7 @@ PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "task.transition": TaskTransitionParams,
     "decision.request": DecisionRequestParams,
     "decision.record": DecisionRecordParams,
+    "workspace.capture": WorkspaceCaptureParams,
 }
 
 

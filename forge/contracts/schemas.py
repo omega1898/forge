@@ -35,12 +35,15 @@ SCHEMA_MODELS = {
     "params.task.transition": commands.TaskTransitionParams,
     "params.decision.request": commands.DecisionRequestParams,
     "params.decision.record": commands.DecisionRecordParams,
+    "params.workspace.capture": commands.WorkspaceCaptureParams,
     "record.project": records.Project,
     "record.requirement": records.Requirement,
     "record.criterion": records.Criterion,
     "record.task": records.Task,
     "record.decision": records.Decision,
     "record.event": records.EventRecord,
+    "record.artifact": records.Artifact,
+    "record.snapshot": records.Snapshot,
     "report.project_summary": ProjectSummary,
 }
 

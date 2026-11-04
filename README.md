@@ -15,7 +15,7 @@ Blueprint, design baseline 0.1 (4 November 2026)*.
 | F01 | Package, contract versions, ID/digest/time conventions, offline JSON Schemas | **Done** |
 | F02 | Project record, migrations, events/projections, trusted grant and decision store | **Done** (see scope notes) |
 | D01 | `project.summary`: the standup skill as deterministic code over the event log, with time travel | **Done** |
-| F03 | Artifact store, workspace snapshots | Next |
+| F03 | Artifact store, workspace snapshots, approved source roots | **Done** |
 | F04–F24 | Isolation, evaluation, engine, jobs, API/CLI, model gateway, packs, editor, ... | Not started |
 | D02–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
 

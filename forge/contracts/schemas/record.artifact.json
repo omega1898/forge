@@ -1,0 +1,121 @@
+{
+  "$id": "forge:contracts/record.artifact",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_id": {
+      "pattern": "^artifact_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Artifact Id",
+      "type": "string"
+    },
+    "artifact_kind": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Artifact Kind",
+      "type": "string"
+    },
+    "content_type": {
+      "title": "Content Type",
+      "type": "string"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "created_by": {
+      "pattern": "^actor_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Created By",
+      "type": "string"
+    },
+    "digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Digest",
+      "type": "string"
+    },
+    "producer_ref": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z]+_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Producer Ref"
+    },
+    "project_id": {
+      "pattern": "^project_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "record_version": {
+      "minimum": 1,
+      "title": "Record Version",
+      "type": "integer"
+    },
+    "retention": {
+      "enum": [
+        "keep",
+        "ephemeral"
+      ],
+      "title": "Retention",
+      "type": "string"
+    },
+    "sensitivity": {
+      "enum": [
+        "public",
+        "project",
+        "sensitive"
+      ],
+      "title": "Sensitivity",
+      "type": "string"
+    },
+    "size": {
+      "minimum": 0,
+      "title": "Size",
+      "type": "integer"
+    },
+    "tombstone_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Tombstone Reason"
+    },
+    "tombstoned_at": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Tombstoned At"
+    }
+  },
+  "required": [
+    "project_id",
+    "created_at",
+    "created_by",
+    "record_version",
+    "artifact_id",
+    "digest",
+    "size",
+    "content_type",
+    "artifact_kind",
+    "sensitivity",
+    "retention",
+    "producer_ref",
+    "tombstoned_at",
+    "tombstone_reason"
+  ],
+  "title": "Artifact",
+  "type": "object"
+}

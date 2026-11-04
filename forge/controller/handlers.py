@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from forge.artifacts.blobs import BlobInfo, BlobStore
 from forge.authority.grants import TrustStore
 from forge.contracts.base import RevisionRef
 from forge.contracts.clock import parse_timestamp
@@ -27,6 +28,7 @@ from forge.contracts.commands import (
     TaskAddDependencyParams,
     TaskCreateParams,
     TaskTransitionParams,
+    WorkspaceCaptureParams,
 )
 from forge.contracts.errors import ErrorCode, ForgeError
 from forge.contracts.ids import id_prefix, new_id
@@ -35,6 +37,7 @@ from forge.engine.graph import find_cycle
 from forge.engine.lifecycle import is_allowed
 from forge.record.events import DomainEvent
 from forge.record.store import ProjectStore
+from forge.workspace.snapshot import CapturePolicy, CaptureResult, capture_tree
 
 
 @dataclass
@@ -45,6 +48,19 @@ class HandlerContext:
     controller_id: str
     trust_store: TrustStore | None
     project: Project | None
+    blobs: BlobStore | None = None
+    # Result of the method's preparer, computed before the write lock.
+    prepared: Any = None
+
+
+@dataclass
+class PrepareContext:
+    """What a preparer may use. It runs with no database transaction open."""
+
+    store: ProjectStore
+    actor: ActorContext
+    trust_store: TrustStore | None
+    blobs: BlobStore | None
 
 
 @dataclass
@@ -416,6 +432,104 @@ def decision_record(ctx: HandlerContext, command: Command) -> Outcome:
     )
 
 
+# ---------------------------------------------------------- workspace capture --
+
+
+@dataclass(frozen=True)
+class PreparedCapture:
+    result: CaptureResult
+    manifest_blob: BlobInfo
+
+
+def prepare_workspace_capture(ctx: PrepareContext, command: Command) -> PreparedCapture:
+    """Hash and store the source tree before the write lock is taken."""
+    params: WorkspaceCaptureParams = command.params  # type: ignore[assignment]
+    project = ctx.store.project()
+    if project is None or project.project_id != command.envelope.project_id:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, "project_id does not match this controller's project")
+    root = _resolve_source_root(project, params.source_root, ctx.trust_store)
+    if ctx.blobs is None:
+        raise ForgeError(ErrorCode.MISSING_CAPABILITY, "no artifact store is configured")
+    result = capture_tree(root, ctx.blobs, CapturePolicy())
+    manifest_blob = ctx.blobs.put_bytes(result.manifest.canonical_bytes())
+    if manifest_blob.digest != result.manifest_digest:
+        raise ForgeError(ErrorCode.INTERNAL_ERROR, "stored manifest digest does not match the computed one")
+    return PreparedCapture(result=result, manifest_blob=manifest_blob)
+
+
+def _resolve_source_root(project: Project, label: str, trust_store: TrustStore | None):  # noqa: ANN202
+    if label not in project.source_roots:
+        raise ForgeError(
+            ErrorCode.INVALID_REQUEST,
+            f"source root {label!r} is not declared by this project",
+            details={"declared": project.source_roots},
+        )
+    if trust_store is None:
+        raise ForgeError(ErrorCode.MISSING_CAPABILITY, "no trust store is configured to resolve source roots")
+    root = trust_store.source_root(project.project_id, label)
+    if root is None:
+        raise ForgeError(
+            ErrorCode.PERMISSION_DENIED,
+            f"source root {label!r} has not been approved for this project; "
+            "approve it from the trusted local interface",
+        )
+    return root
+
+
+def workspace_capture(ctx: HandlerContext, command: Command) -> Outcome:
+    params: WorkspaceCaptureParams = command.params  # type: ignore[assignment]
+    prepared: PreparedCapture = ctx.prepared
+    manifest = prepared.result.manifest
+    artifact_id = new_id("artifact")
+    snapshot_id = new_id("snapshot")
+    artifact = {
+        "artifact_id": artifact_id,
+        "digest": prepared.manifest_blob.digest,
+        "size": prepared.manifest_blob.size,
+        "content_type": "application/json",
+        "artifact_kind": "snapshot_manifest",
+        "sensitivity": "project",
+        "retention": "keep",
+        "producer_ref": None,
+    }
+    snapshot = {
+        "snapshot_id": snapshot_id,
+        "manifest_digest": prepared.result.manifest_digest,
+        "manifest_artifact_id": artifact_id,
+        "source_root": params.source_root,
+        "base_commit": manifest.base_commit,
+        "capture_policy_revision": manifest.capture_policy_revision,
+        "file_count": len(manifest.entries),
+        "total_bytes": manifest.total_bytes,
+        "excluded_count": len(manifest.excluded),
+        "dirty_paths": params.dirty_paths,
+        "parent_snapshot_id": None,
+        "origin": "capture",
+    }
+    return Outcome(
+        events=[
+            DomainEvent("artifact.registered", {"artifact": artifact}),
+            DomainEvent("snapshot.captured", {"snapshot": snapshot}),
+        ],
+        result={
+            "snapshot_id": snapshot_id,
+            "manifest_digest": prepared.result.manifest_digest,
+            "file_count": len(manifest.entries),
+            "excluded": [entry.model_dump() for entry in manifest.excluded[:50]],
+            "excluded_count": len(manifest.excluded),
+            "dirty_paths_not_captured": params.dirty_paths,
+            "capture_attempts": prepared.result.attempts,
+        },
+    )
+
+
+Preparer = Callable[[PrepareContext, Command], Any]
+
+PREPARERS: dict[str, Preparer] = {
+    "workspace.capture": prepare_workspace_capture,
+}
+
+
 HANDLERS: dict[str, Handler] = {
     "project.create": project_create,
     "requirement.create": requirement_create,
@@ -425,6 +539,7 @@ HANDLERS: dict[str, Handler] = {
     "task.transition": task_transition,
     "decision.request": decision_request,
     "decision.record": decision_record,
+    "workspace.capture": workspace_capture,
 }
 
 # Execution hosts report observations; they do not edit plans or decide.

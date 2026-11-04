@@ -20,7 +20,16 @@ from typing import Any
 
 from forge.contracts.clock import Clock, SystemClock
 from forge.contracts.errors import ErrorCode, ForgeError
-from forge.contracts.records import Criterion, Decision, EventRecord, Project, Requirement, Task
+from forge.contracts.records import (
+    Artifact,
+    Criterion,
+    Decision,
+    EventRecord,
+    Project,
+    Requirement,
+    Snapshot,
+    Task,
+)
 from forge.record.db import open_connection, write_transaction
 from forge.record.events import row_to_event
 from forge.record.lock import ProjectLock
@@ -146,6 +155,36 @@ class RecordReader:
             values.append(disposition)
         sql += " ORDER BY created_at, decision_id"
         return [_decision_from_row(row) for row in self.conn.execute(sql, values)]
+
+    def artifact(self, artifact_id: str) -> Artifact | None:
+        row = self.conn.execute(
+            "SELECT * FROM artifacts WHERE artifact_id = ?", (artifact_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        return Artifact(
+            **_common(row),
+            artifact_id=row["artifact_id"],
+            digest=row["digest"],
+            size=row["size"],
+            content_type=row["content_type"],
+            artifact_kind=row["artifact_kind"],
+            sensitivity=row["sensitivity"],
+            retention=row["retention"],
+            producer_ref=row["producer_ref"],
+            tombstoned_at=row["tombstoned_at"],
+            tombstone_reason=row["tombstone_reason"],
+        )
+
+    def snapshot(self, snapshot_id: str) -> Snapshot | None:
+        row = self.conn.execute(
+            "SELECT * FROM snapshots WHERE snapshot_id = ?", (snapshot_id,)
+        ).fetchone()
+        return None if row is None else _snapshot_from_row(row)
+
+    def snapshots(self) -> list[Snapshot]:
+        rows = self.conn.execute("SELECT * FROM snapshots ORDER BY created_at, snapshot_id")
+        return [_snapshot_from_row(row) for row in rows]
 
     def events(self, *, after_seq: int = 0, limit: int = DEFAULT_PAGE) -> list[EventRecord]:
         limit = max(1, min(int(limit), MAX_PAGE))
@@ -302,6 +341,24 @@ def _common(row: sqlite3.Row) -> dict[str, Any]:
         "created_by": row["created_by"],
         "record_version": row["record_version"],
     }
+
+
+def _snapshot_from_row(row: sqlite3.Row) -> Snapshot:
+    return Snapshot(
+        **_common(row),
+        snapshot_id=row["snapshot_id"],
+        manifest_digest=row["manifest_digest"],
+        manifest_artifact_id=row["manifest_artifact_id"],
+        source_root=row["source_root"],
+        base_commit=row["base_commit"],
+        capture_policy_revision=row["capture_policy_revision"],
+        file_count=row["file_count"],
+        total_bytes=row["total_bytes"],
+        excluded_count=row["excluded_count"],
+        dirty_paths=json.loads(row["dirty_paths_json"]),
+        parent_snapshot_id=row["parent_snapshot_id"],
+        origin=row["origin"],
+    )
 
 
 def _decision_from_row(row: sqlite3.Row) -> Decision:

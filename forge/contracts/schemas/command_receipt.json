@@ -48,7 +48,8 @@
         "task.add_dependency",
         "task.transition",
         "decision.request",
-        "decision.record"
+        "decision.record",
+        "workspace.capture"
       ],
       "title": "Method",
       "type": "string"
