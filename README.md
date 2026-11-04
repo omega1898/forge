@@ -29,7 +29,8 @@ Blueprint, design baseline 0.1 (4 November 2026)*.
 | F10 | Snapshot-bound index (Python ast definitions, imports, tests; SQLite FTS5); context bundles with budgets, omissions and excerpts; citation checks; D05 project facts | **Done** |
 | F11 | Python pack; build_tool workflow from request to released package (the walking skeleton); offline packaging check; D06 capabilities (review, bug fix, test strategy, tech debt) | **Done** |
 | F12 | Change proposals bound to exact digests; safe apply with conflict detection and a crash-recovery journal; strict patch applier; bounded assistant loop; D07 generate-and-verify admission | **Done** (walking skeleton complete) |
-| F13–F24 | Editor, teaching, other packs, platforms, offline bundles | In progress |
+| F24 | Offline bundles: Ed25519-signed manifests verified only with keys a trusted user enrolled; expiry, downgrade/replay ledger, per-file digests, platform checks, safe archive extraction, admission hook, immutable versions, atomic switch, recorded rollback | **Done** (proves origin and integrity, not that contents are benign) |
+| F13–F23 | Editor, teaching, other packs, platforms | In progress |
 | D08–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
 
 Acceptance results checked by the test suite (`tests/`):
