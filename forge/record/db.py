@@ -30,7 +30,11 @@ _SYNCHRONOUS_FULL = 2
 
 
 def open_connection(path: Path, *, wal: bool = True) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(path), isolation_level=None, timeout=BUSY_TIMEOUT_MS / 1000)
+    # check_same_thread=False: the API server calls in from worker threads,
+    # always one at a time under the controller's lock.
+    conn = sqlite3.connect(
+        str(path), isolation_level=None, timeout=BUSY_TIMEOUT_MS / 1000, check_same_thread=False
+    )
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("PRAGMA foreign_keys = ON")

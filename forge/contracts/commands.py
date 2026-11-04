@@ -61,6 +61,7 @@ Method = Literal[
     "job.retry",
     "job.reconciliation_required",
     "task.cancel",
+    "intent.submit",
 ]
 
 # Methods that change an existing record and therefore must say which version
@@ -354,6 +355,12 @@ class TaskCancelParams(StrictModel):
     reason: Text(2000)
 
 
+class IntentSubmitParams(StrictModel):
+    text: Text(20_000)
+    mode: Literal["build", "pair", "learn", "review"] = "build"
+    artifact_refs: list[IdOf("artifact")] = Field(default_factory=list, max_length=32)
+
+
 PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "project.create": ProjectCreateParams,
     "requirement.create": RequirementCreateParams,
@@ -378,6 +385,7 @@ PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "job.retry": JobRetryParams,
     "job.reconciliation_required": JobReconciliationParams,
     "task.cancel": TaskCancelParams,
+    "intent.submit": IntentSubmitParams,
 }
 
 

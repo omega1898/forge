@@ -251,6 +251,14 @@ class RecordReader:
         rows = self.conn.execute("SELECT * FROM outbox WHERE state = 'pending' ORDER BY created_at, outbox_id")
         return [dict(row) for row in rows]
 
+    def intent(self, intent_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute("SELECT * FROM intents WHERE intent_id = ?", (intent_id,)).fetchone()
+        if row is None:
+            return None
+        item = dict(row)
+        item["artifact_refs"] = json.loads(item.pop("artifact_refs_json"))
+        return item
+
     def plan_revisions(self) -> list[dict[str, Any]]:
         rows = self.conn.execute("SELECT * FROM plan_revisions ORDER BY plan_revision")
         return [

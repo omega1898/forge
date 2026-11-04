@@ -28,6 +28,7 @@ dev = [
 ]
 
 [project.scripts]
+forge = "forge.client_cli:main"
 forge-dev = "forge.cli:main"
 
 [tool.setuptools.packages.find]

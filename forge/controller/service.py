@@ -72,6 +72,10 @@ class Controller:
     def subscribe(self, listener: Listener) -> None:
         self._listeners.append(listener)
 
+    def unsubscribe(self, listener: Listener) -> None:
+        if listener in self._listeners:
+            self._listeners.remove(listener)
+
     def apply_command(self, raw: object, actor: ActorContext) -> CommandReceipt:
         # Steps 1-2: validation and hashing, no database lock held.
         command = parse_command(raw)

@@ -20,7 +20,8 @@ Blueprint, design baseline 0.1 (4 November 2026)*.
 | F05 | Protected black-box evaluator; evidence, assessments, findings; D02 analyzer rules and verdict; D03 determinism and suite-strength probes | **Done** |
 | F06 | Plan deltas validated as a unit; completion evaluator over assessments, waivers and decisions; supersede links | **Done** |
 | F07 | Job specs with digest projection, outbox, host agent with durable ledger, lease-epoch fencing, cancellation, crash recovery and external-effect reconciliation | **Done** |
-| F08–F24 | API/CLI, model gateway, retrieval, packs, editor, ... | In progress |
+| F08 | Authenticated loopback JSON-RPC API and SSE event stream; `forge` CLI client; recorded intents | **Done** |
+| F09–F24 | Model gateway, retrieval, packs, editor, ... | In progress |
 | D04–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
 
 Acceptance results checked by the test suite (`tests/`):
@@ -66,6 +67,21 @@ python -m venv .venv
 
 ```bash
 .venv/bin/forge-dev summary --root forge-data
+```
+
+Run the controller with its API, then use the `forge` client from another
+terminal:
+
+```bash
+.venv/bin/forge serve --root forge-api
+```
+
+```bash
+.venv/bin/forge init --root forge-api --name "Packet reader" --objective "Read packets safely"
+```
+
+```bash
+.venv/bin/forge intent --root forge-api "Build a utility that reads a packet file"
 ```
 
 (On Windows use `.venv\Scripts\` instead of `.venv/bin/`.)

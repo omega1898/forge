@@ -32,6 +32,7 @@ from forge.contracts.commands import (
     EvidenceRecordExecutionParams,
     EvidenceRecordReviewParams,
     FindingRecordParams,
+    IntentSubmitParams,
     JobCreateParams,
     JobObserveParams,
     JobReceiptParams,
@@ -1053,6 +1054,26 @@ def task_cancel(ctx: HandlerContext, command: Command) -> Outcome:
     )
 
 
+def intent_submit(ctx: HandlerContext, command: Command) -> Outcome:
+    """Record the request verbatim and create the planning task for it."""
+    params: IntentSubmitParams = command.params  # type: ignore[assignment]
+    _require_artifacts(ctx, params.artifact_refs)
+    intent_id, task_id = new_id("intent"), new_id("task")
+    first_line = " ".join(params.text.split())[:240]
+    task = {
+        "task_id": task_id, "task_type": "prepare", "title": f"Plan: {first_line}", "status": "queued",
+        "requirement_refs": [], "criterion_refs": [], "input_refs": [], "authority_ref": None,
+        "budget": {"max_wall_ms": 3_600_000, "max_attempts": 3}, "workflow_revision": 1,
+    }
+    intent = {"intent_id": intent_id, "text": params.text, "mode": params.mode,
+              "artifact_refs": params.artifact_refs, "planning_task_id": task_id}
+    return Outcome(
+        events=[DomainEvent("task.created", {"task": task, "depends_on": []}),
+                DomainEvent("intent.submitted", {"intent": intent})],
+        result={"intent_id": intent_id, "planning_task_id": task_id},
+    )
+
+
 Preparer = Callable[[PrepareContext, Command], Any]
 
 PREPARERS: dict[str, Preparer] = {
@@ -1085,6 +1106,7 @@ HANDLERS: dict[str, Handler] = {
     "job.retry": job_retry,
     "job.reconciliation_required": job_reconciliation_required,
     "task.cancel": task_cancel,
+    "intent.submit": intent_submit,
 }
 
 # Execution hosts report observations; they do not edit plans or decide.

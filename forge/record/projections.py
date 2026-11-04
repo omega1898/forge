@@ -29,7 +29,7 @@ Projector = Callable[[sqlite3.Connection, EventRecord], None]
 
 # Order matters when clearing: children before parents (foreign keys).
 PROJECTION_TABLES = (
-    "outbox", "jobs", "plan_revisions", "findings", "assessments", "evidence",
+    "intents", "outbox", "jobs", "plan_revisions", "findings", "assessments", "evidence",
     "task_dependencies", "decisions", "tasks", "snapshots", "artifacts", "records", "projects",
 )
 
@@ -390,6 +390,16 @@ def _job_updated(conn: sqlite3.Connection, event: EventRecord) -> None:
         )
 
 
+def _intent_submitted(conn: sqlite3.Connection, event: EventRecord) -> None:
+    intent = event.payload["intent"]
+    conn.execute(
+        "INSERT INTO intents (intent_id, project_id, text, mode, artifact_refs_json, planning_task_id,"
+        " created_at, created_by, record_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
+        (intent["intent_id"], event.project_id, intent["text"], intent["mode"],
+         _json(intent["artifact_refs"]), intent["planning_task_id"], event.occurred_at, event.actor_id),
+    )
+
+
 PROJECTORS: dict[tuple[str, int], Projector] = {
     ("project.created", 1): _project_created,
     ("requirement.created", 1): _record_created("requirement"),
@@ -410,6 +420,7 @@ PROJECTORS: dict[tuple[str, int], Projector] = {
     ("task.completed", 1): _task_completed,
     ("job.created", 1): _job_created,
     ("job.updated", 1): _job_updated,
+    ("intent.submitted", 1): _intent_submitted,
 }
 
 

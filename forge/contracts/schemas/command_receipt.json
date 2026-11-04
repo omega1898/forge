@@ -63,7 +63,8 @@
         "job.observe",
         "job.retry",
         "job.reconciliation_required",
-        "task.cancel"
+        "task.cancel",
+        "intent.submit"
       ],
       "title": "Method",
       "type": "string"

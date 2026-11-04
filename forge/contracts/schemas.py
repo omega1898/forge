@@ -50,6 +50,7 @@ SCHEMA_MODELS = {
     "params.job.retry": commands.JobRetryParams,
     "params.job.reconciliation_required": commands.JobReconciliationParams,
     "params.task.cancel": commands.TaskCancelParams,
+    "params.intent.submit": commands.IntentSubmitParams,
     "job_spec": __import__("forge.contracts.jobs", fromlist=["JobSpec"]).JobSpec,
     "record.project": records.Project,
     "record.requirement": records.Requirement,

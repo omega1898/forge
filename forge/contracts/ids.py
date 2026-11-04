@@ -31,6 +31,7 @@ ID_PREFIXES: frozenset[str] = frozenset(
         "experiment",
         "finding",
         "grant",
+        "intent",
         "job",
         "project",
         "proposal",
@@ -138,3 +139,4 @@ AssessmentId = IdOf("assessment")
 ProposalId = IdOf("proposal")
 FindingId = IdOf("finding")
 ExperimentId = IdOf("experiment")
+IntentId = IdOf("intent")
