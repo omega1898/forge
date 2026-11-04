@@ -33,6 +33,7 @@ from forge.contracts.commands import (
     EvidenceRecordReviewParams,
     FindingRecordParams,
     IntentSubmitParams,
+    ModelCallRecordParams,
     JobCreateParams,
     JobObserveParams,
     JobReceiptParams,
@@ -1074,6 +1075,14 @@ def intent_submit(ctx: HandlerContext, command: Command) -> Outcome:
     )
 
 
+def model_call_record(ctx: HandlerContext, command: Command) -> Outcome:
+    params: ModelCallRecordParams = command.params  # type: ignore[assignment]
+    if ctx.store.conn.execute("SELECT 1 FROM model_calls WHERE call_id = ?", (params.call_id,)).fetchone():
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"model call {params.call_id} is already recorded")
+    return Outcome(events=[DomainEvent("model.call_recorded", {"call": params.model_dump(mode="json")})],
+                   result={"call_id": params.call_id})
+
+
 Preparer = Callable[[PrepareContext, Command], Any]
 
 PREPARERS: dict[str, Preparer] = {
@@ -1107,6 +1116,7 @@ HANDLERS: dict[str, Handler] = {
     "job.reconciliation_required": job_reconciliation_required,
     "task.cancel": task_cancel,
     "intent.submit": intent_submit,
+    "model.call_record": model_call_record,
 }
 
 # Execution hosts report observations; they do not edit plans or decide.
@@ -1118,6 +1128,7 @@ ALLOWED_ACTOR_KINDS: dict[str, frozenset[str]] = {
 for _method in (
     "artifact.register", "evidence.record_execution", "assessment.record", "finding.record",
     "job.create", "job.receipt", "job.observe", "job.retry", "job.reconciliation_required",
+    "model.call_record",
 ):
     ALLOWED_ACTOR_KINDS[_method] = frozenset({"system"})
 # Generated tests stay proposals until a person (or FORGE itself) admits them.

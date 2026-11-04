@@ -29,7 +29,7 @@ Projector = Callable[[sqlite3.Connection, EventRecord], None]
 
 # Order matters when clearing: children before parents (foreign keys).
 PROJECTION_TABLES = (
-    "intents", "outbox", "jobs", "plan_revisions", "findings", "assessments", "evidence",
+    "model_calls", "intents", "outbox", "jobs", "plan_revisions", "findings", "assessments", "evidence",
     "task_dependencies", "decisions", "tasks", "snapshots", "artifacts", "records", "projects",
 )
 
@@ -400,6 +400,20 @@ def _intent_submitted(conn: sqlite3.Connection, event: EventRecord) -> None:
     )
 
 
+def _model_call_recorded(conn: sqlite3.Connection, event: EventRecord) -> None:
+    call = event.payload["call"]
+    conn.execute(
+        "INSERT INTO model_calls (call_id, project_id, task_id, model_config_id, config_digest, slot_id, status,"
+        " prompt_digest, output_digest, output_json, errors_json, redactions_json, prompt_tokens,"
+        " completion_tokens, wall_ms, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (call["call_id"], event.project_id, call["task_id"], call["model_config_id"], call["config_digest"],
+         call["slot_id"], call["status"], call["prompt_digest"], call["output_digest"],
+         None if call["output"] is None else _json(call["output"]), _json(call["errors"]),
+         _json(call["redactions"]), call["prompt_tokens"], call["completion_tokens"], call["wall_ms"],
+         event.occurred_at, event.actor_id),
+    )
+
+
 PROJECTORS: dict[tuple[str, int], Projector] = {
     ("project.created", 1): _project_created,
     ("requirement.created", 1): _record_created("requirement"),
@@ -421,6 +435,7 @@ PROJECTORS: dict[tuple[str, int], Projector] = {
     ("job.created", 1): _job_created,
     ("job.updated", 1): _job_updated,
     ("intent.submitted", 1): _intent_submitted,
+    ("model.call_recorded", 1): _model_call_recorded,
 }
 
 

@@ -62,6 +62,7 @@ Method = Literal[
     "job.reconciliation_required",
     "task.cancel",
     "intent.submit",
+    "model.call_record",
 ]
 
 # Methods that change an existing record and therefore must say which version
@@ -361,6 +362,23 @@ class IntentSubmitParams(StrictModel):
     artifact_refs: list[IdOf("artifact")] = Field(default_factory=list, max_length=32)
 
 
+class ModelCallRecordParams(StrictModel):
+    call_id: str = Field(min_length=1, max_length=100)
+    task_id: TaskId | None
+    model_config_id: str = Field(min_length=1, max_length=100)
+    config_digest: Digest
+    slot_id: Slug
+    status: str = Field(min_length=1, max_length=40)
+    prompt_digest: Digest
+    output_digest: Digest
+    output: dict[str, JsonValue] | None
+    errors: list[str] = Field(default_factory=list, max_length=10)
+    redactions: list[str] = Field(default_factory=list, max_length=20)
+    prompt_tokens: int | None
+    completion_tokens: int | None
+    wall_ms: int = Field(ge=0)
+
+
 PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "project.create": ProjectCreateParams,
     "requirement.create": RequirementCreateParams,
@@ -386,6 +404,7 @@ PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "job.reconciliation_required": JobReconciliationParams,
     "task.cancel": TaskCancelParams,
     "intent.submit": IntentSubmitParams,
+    "model.call_record": ModelCallRecordParams,
 }
 
 

@@ -64,7 +64,8 @@
         "job.retry",
         "job.reconciliation_required",
         "task.cancel",
-        "intent.submit"
+        "intent.submit",
+        "model.call_record"
       ],
       "title": "Method",
       "type": "string"

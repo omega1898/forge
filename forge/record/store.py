@@ -259,6 +259,21 @@ class RecordReader:
         item["artifact_refs"] = json.loads(item.pop("artifact_refs_json"))
         return item
 
+    def model_calls(self, *, task_id: str | None = None) -> list[dict[str, Any]]:
+        sql, values = "SELECT * FROM model_calls", []
+        if task_id is not None:
+            sql += " WHERE task_id = ?"
+            values.append(task_id)
+        rows = self.conn.execute(sql + " ORDER BY created_at, call_id", values)
+        calls = []
+        for row in rows:
+            item = dict(row)
+            for key in ("output_json", "errors_json", "redactions_json"):
+                value = item.pop(key)
+                item[key.removesuffix("_json")] = None if value is None else json.loads(value)
+            calls.append(item)
+        return calls
+
     def plan_revisions(self) -> list[dict[str, Any]]:
         rows = self.conn.execute("SELECT * FROM plan_revisions ORDER BY plan_revision")
         return [

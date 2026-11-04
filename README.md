@@ -21,8 +21,9 @@ Blueprint, design baseline 0.1 (4 November 2026)*.
 | F06 | Plan deltas validated as a unit; completion evaluator over assessments, waivers and decisions; supersede links | **Done** |
 | F07 | Job specs with digest projection, outbox, host agent with durable ledger, lease-epoch fencing, cancellation, crash recovery and external-effect reconciliation | **Done** |
 | F08 | Authenticated loopback JSON-RPC API and SSE event stream; `forge` CLI client; recorded intents | **Done** |
-| F09–F24 | Model gateway, retrieval, packs, editor, ... | In progress |
-| D04–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
+| F09 | Model gateway: probed configurations, fake and OpenAI-compatible (llama.cpp) adapters, token budgets, redaction, call records; D04 model slots with grammar-safe schemas and fact-checking validators | **Done** |
+| F10–F24 | Retrieval, packs, proposals, editor, ... | In progress |
+| D05–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
 
 Acceptance results checked by the test suite (`tests/`):
 
