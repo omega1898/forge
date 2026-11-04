@@ -29,6 +29,9 @@ jobs:
         run: python -m forge.contracts.schemas
       - name: Test
         run: python -m pytest -q
+      - name: TypeScript compiler for the editor extension tests (Linux)
+        if: runner.os == 'Linux'
+        run: npm install -g typescript@6.0.2
       - name: Full suite with the isolation backend (Linux, as root)
         # The isolation backend needs root; without this step every sandboxed
         # test skips on CI and would prove nothing.

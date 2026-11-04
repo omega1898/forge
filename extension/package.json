@@ -1,0 +1,32 @@
+{
+  "name": "forge-vscodium",
+  "displayName": "FORGE",
+  "description": "Tasks, evidence and reviews from a local FORGE controller.",
+  "version": "0.1.0",
+  "publisher": "forge-local",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": { "vscode": "^1.85.0" },
+  "main": "./out/src/extension.js",
+  "activationEvents": ["onView:forge.tasks"],
+  "contributes": {
+    "views": { "explorer": [{ "id": "forge.tasks", "name": "FORGE" }] },
+    "commands": [
+      { "command": "forge.refresh", "title": "FORGE: Refresh" },
+      { "command": "forge.review.next", "title": "FORGE: Next change in review" },
+      { "command": "forge.review.previous", "title": "FORGE: Previous change in review" },
+      { "command": "forge.review.approve", "title": "FORGE: Approve reviewed proposal" },
+      { "command": "forge.review.reject", "title": "FORGE: Reject proposal with a reason" }
+    ],
+    "keybindings": [
+      { "command": "forge.review.next", "key": "alt+n", "when": "forge.reviewing" },
+      { "command": "forge.review.previous", "key": "alt+p", "when": "forge.reviewing" },
+      { "command": "forge.review.approve", "key": "alt+a", "when": "forge.reviewing" },
+      { "command": "forge.review.reject", "key": "alt+r", "when": "forge.reviewing" }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "tsc -p . && node --test out/test/"
+  }
+}
