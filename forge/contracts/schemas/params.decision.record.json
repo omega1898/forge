@@ -1,0 +1,47 @@
+{
+  "$id": "forge:contracts/params.decision.record",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "decision_id": {
+      "pattern": "^decision_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "disposition": {
+      "enum": [
+        "approved",
+        "rejected",
+        "withdrawn"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    },
+    "proposal_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Proposal Digest"
+    },
+    "reason": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "decision_id",
+    "disposition",
+    "reason"
+  ],
+  "title": "DecisionRecordParams",
+  "type": "object"
+}

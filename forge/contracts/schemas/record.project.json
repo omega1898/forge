@@ -1,0 +1,72 @@
+{
+  "$id": "forge:contracts/record.project",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "controller_id": {
+      "pattern": "^controller_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Controller Id",
+      "type": "string"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "created_by": {
+      "pattern": "^actor_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Created By",
+      "type": "string"
+    },
+    "last_event_seq": {
+      "minimum": 0,
+      "title": "Last Event Seq",
+      "type": "integer"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "objective": {
+      "title": "Objective",
+      "type": "string"
+    },
+    "profile_id": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "project_id": {
+      "pattern": "^project_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "record_version": {
+      "minimum": 1,
+      "title": "Record Version",
+      "type": "integer"
+    },
+    "source_roots": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_]{0,63}$",
+        "type": "string"
+      },
+      "title": "Source Roots",
+      "type": "array"
+    }
+  },
+  "required": [
+    "project_id",
+    "created_at",
+    "created_by",
+    "record_version",
+    "name",
+    "objective",
+    "controller_id",
+    "source_roots",
+    "profile_id",
+    "last_event_seq"
+  ],
+  "title": "Project",
+  "type": "object"
+}

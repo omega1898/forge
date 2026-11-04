@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "forge:contracts/command_envelope",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "expected_record_version": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Record Version"
+    },
+    "idempotency_key": {
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "method": {
+      "enum": [
+        "project.create",
+        "requirement.create",
+        "criterion.create",
+        "task.create",
+        "task.add_dependency",
+        "task.transition",
+        "decision.request",
+        "decision.record"
+      ],
+      "title": "Method",
+      "type": "string"
+    },
+    "params": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Params",
+      "type": "object"
+    },
+    "project_id": {
+      "anyOf": [
+        {
+          "pattern": "^project_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Project Id"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "method",
+    "idempotency_key",
+    "params"
+  ],
+  "title": "CommandEnvelope",
+  "type": "object"
+}

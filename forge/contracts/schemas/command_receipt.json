@@ -1,0 +1,92 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "forge:contracts/command_receipt",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The controller's durable answer to an accepted command.\n\nReceiving a receipt means the command's effect is recorded. It does not\nmean any long-running work has finished.",
+  "properties": {
+    "accepted_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+      "title": "Accepted At",
+      "type": "string"
+    },
+    "actor_id": {
+      "pattern": "^actor_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Actor Id",
+      "type": "string"
+    },
+    "command_id": {
+      "pattern": "^command_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Command Id",
+      "type": "string"
+    },
+    "duplicate_delivery": {
+      "default": false,
+      "title": "Duplicate Delivery",
+      "type": "boolean"
+    },
+    "event_seqs": {
+      "items": {
+        "type": "integer"
+      },
+      "title": "Event Seqs",
+      "type": "array"
+    },
+    "idempotency_key": {
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "method": {
+      "enum": [
+        "project.create",
+        "requirement.create",
+        "criterion.create",
+        "task.create",
+        "task.add_dependency",
+        "task.transition",
+        "decision.request",
+        "decision.record"
+      ],
+      "title": "Method",
+      "type": "string"
+    },
+    "project_id": {
+      "pattern": "^project_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "request_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Request Digest",
+      "type": "string"
+    },
+    "result": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Result",
+      "type": "object"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "command_id",
+    "method",
+    "project_id",
+    "idempotency_key",
+    "request_digest",
+    "actor_id",
+    "accepted_at",
+    "event_seqs",
+    "result"
+  ],
+  "title": "CommandReceipt",
+  "type": "object"
+}

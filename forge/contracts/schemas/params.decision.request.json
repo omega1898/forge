@@ -1,0 +1,97 @@
+{
+  "$defs": {
+    "RevisionRef": {
+      "additionalProperties": false,
+      "description": "A reference to a specific revision of a record.\n\nMeaning can change between revisions, so a test assessed against\nrequirement revision 2 must not silently satisfy revision 3.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z]+_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "RevisionRef",
+      "type": "object"
+    }
+  },
+  "$id": "forge:contracts/params.decision.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_ref": {
+      "anyOf": [
+        {
+          "pattern": "^grant_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Authority Ref"
+    },
+    "decision_kind": {
+      "enum": [
+        "apply_change",
+        "waiver",
+        "architecture",
+        "grant",
+        "release"
+      ],
+      "title": "Decision Kind",
+      "type": "string"
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expires At"
+    },
+    "proposal_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Proposal Digest"
+    },
+    "question": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Question",
+      "type": "string"
+    },
+    "subject_ref": {
+      "$ref": "#/$defs/RevisionRef"
+    }
+  },
+  "required": [
+    "decision_kind",
+    "subject_ref",
+    "question"
+  ],
+  "title": "DecisionRequestParams",
+  "type": "object"
+}

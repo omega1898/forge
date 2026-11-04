@@ -1,0 +1,87 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "forge:contracts/record.criterion",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "assessment_method": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Assessment Method",
+      "type": "string"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "created_by": {
+      "pattern": "^actor_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Created By",
+      "type": "string"
+    },
+    "criterion_id": {
+      "pattern": "^criterion_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Criterion Id",
+      "type": "string"
+    },
+    "parameters": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Parameters",
+      "type": "object"
+    },
+    "project_id": {
+      "pattern": "^project_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "record_version": {
+      "minimum": 1,
+      "title": "Record Version",
+      "type": "integer"
+    },
+    "required_environments": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_]{0,63}$",
+        "type": "string"
+      },
+      "title": "Required Environments",
+      "type": "array"
+    },
+    "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "subject": {
+      "title": "Subject",
+      "type": "string"
+    },
+    "waiver_policy": {
+      "enum": [
+        "forbidden",
+        "allowed_with_decision"
+      ],
+      "title": "Waiver Policy",
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "created_at",
+    "created_by",
+    "record_version",
+    "criterion_id",
+    "revision",
+    "subject",
+    "assessment_method",
+    "parameters",
+    "required_environments",
+    "waiver_policy"
+  ],
+  "title": "Criterion",
+  "type": "object"
+}

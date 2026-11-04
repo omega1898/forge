@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+# Local FORGE runtime state from demos; never commit live databases.
+forge-data/
+*.db
+*.db-wal
+*.db-shm
+*.lock
