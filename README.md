@@ -3,14 +3,18 @@
 An offline software engineering controller, built from the *FORGE Engineering
 Blueprint, design baseline 0.1 (4 November 2026)*.
 
-> **Status: walking skeleton complete (F01-F12).** One local Linux host, one
-> model adapter (fake or any OpenAI-compatible local server such as
-> llama.cpp), a small Python utility, project record, snapshots, sandboxed
-> tools, protected evaluation, proposed patches, safe application,
-> packaging and recovery all work end to end and are tested. Not yet built:
-> the editor extension, teaching, non-Python language packs, Windows/macOS
-> hosts, offline bundles. Nothing here is security-qualified; the Linux
-> sandbox is for trusted code only.
+> **Status: every ticket this Linux machine can test is built (F01-F20,
+> F22-F24 partly or fully, D01-D11, plus TDD tooling).** Built and tested
+> here: project record, snapshots, sandboxed tools, protected evaluation,
+> proposals and safe apply, model gateway, retrieval, Python, C/C++, Java and
+> Bash packs, performance, platform truthfulness, teaching, TDD, offline
+> bundles, an editor extension's logic, and simulated migration and board
+> workflows. **Not built, because this machine cannot run them:** native
+> Windows and macOS hosts, COBOL/JCL execution, PowerShell and OCaml packs,
+> the reverse-engineering VM (F21), real emulators and boards, and real
+> local model weights. Those checks report `not_run` instead of passing.
+> Nothing here is security-qualified; the Linux sandbox is for trusted code
+> only.
 
 ## What exists today
 
@@ -42,7 +46,9 @@ Blueprint, design baseline 0.1 (4 November 2026)*.
 | F19 | Java pack: javac/java admitted by digest with the JDK's external configuration directory mounted read-only; build in the sandbox, classes collected, protected suite run through `{java}`; compile diagnostics. COBOL/JCL: reported unavailable (no `cobc` here); copybook layouts, EBCDIC code pages, zoned and packed decimals, COBOL ROUNDED and exact record comparison with explicit accepted differences work without a compiler. Measured pack status table | **Done** for Java; COBOL execution **not available on this host** |
 | F23 | Bash pack and scoped testing tools: script tools declare typed arguments (path, integer, choice, patterned text, target); hostile values are refused with a reason and accepted ones travel as argv, so shell metacharacters stay inert; target scope refuses URL userinfo, non-canonical IP forms, out-of-network IPv4-mapped IPv6, non-ASCII hosts, ungranted ports and schemes, and DNS answers outside the grant (resolved addresses are pinned); five-rule Bash linter | **Done** for Bash; PowerShell and OCaml **not installed here** (reported by the measured pack status) |
 | F24 | Offline bundles: Ed25519-signed manifests verified only with keys a trusted user enrolled; expiry, downgrade/replay ledger, per-file digests, platform checks, safe archive extraction, admission hook, immutable versions, atomic switch, recorded rollback | **Done** (proves origin and integrity, not that contents are benign) |
-| F20–F22 | Migration, reverse engineering, embedded | In progress |
+| F20 | Migration (partial): restartable batch with exactly-once output per record (a rolled-back checkpoint cannot duplicate a side effect); comparison against approved reference output with explicit accepted differences; preparer/reconciler separation; cutover and rollback rehearsal that refuses cutover on any unaccepted difference | **Partial**: the approved reference is recorded legacy output; no COBOL compiler here to produce it live |
+| F21 | Reverse-engineering VM adapter, hypotheses, controlled experiments | **Not built**: needs a dedicated isolated VM that does not exist on this host |
+| F22 | Embedded (partial): host, emulator and hardware evidence tiers never stand in for each other; board actions need an approval bound to the board serial, image digest and operation; a simulated A/B board on the F07 external-effect path shows that power loss mid-flash leaves `unknown` state for a person and is never re-flashed automatically (EX-T11) | **Partial**: no emulator or board protocol adapter is installed; the board is simulated |
 
 Acceptance results checked by the test suite (`tests/`):
 
