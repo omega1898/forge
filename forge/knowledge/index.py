@@ -178,6 +178,14 @@ class SnapshotIndex:
         finally:
             db.close()
 
+    def defined_names(self, manifest_digest: str) -> set[str]:
+        """Every function and class name defined in the snapshot (for documentation freshness)."""
+        db = self._connect(manifest_digest)
+        try:
+            return {row[0] for row in db.execute("SELECT DISTINCT name FROM symbols")}
+        finally:
+            db.close()
+
     def tests_for(self, manifest_digest: str, module_path: str) -> list[SourceRef]:
         """Test functions in files that import the given module (by module name)."""
         module = module_path.removesuffix(".py").replace("/", ".").removeprefix("src.")
