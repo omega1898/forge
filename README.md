@@ -59,6 +59,11 @@ python -m venv .venv
 The walkthrough for this stage is in
 [docs/sessions/01-records-and-commands.md](docs/sessions/01-records-and-commands.md).
 
+How FORGE replaces assistant "skills" with deterministic code plus narrow,
+validated model calls is analyzed in
+[docs/design/skill-distillation.md](docs/design/skill-distillation.md),
+including the D-ticket plan that attaches to the 24 blueprint tickets.
+
 ## Layout
 
 ```
