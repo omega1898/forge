@@ -22,8 +22,9 @@ Blueprint, design baseline 0.1 (4 November 2026)*.
 | F07 | Job specs with digest projection, outbox, host agent with durable ledger, lease-epoch fencing, cancellation, crash recovery and external-effect reconciliation | **Done** |
 | F08 | Authenticated loopback JSON-RPC API and SSE event stream; `forge` CLI client; recorded intents | **Done** |
 | F09 | Model gateway: probed configurations, fake and OpenAI-compatible (llama.cpp) adapters, token budgets, redaction, call records; D04 model slots with grammar-safe schemas and fact-checking validators | **Done** |
-| F10–F24 | Retrieval, packs, proposals, editor, ... | In progress |
-| D05–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
+| F10 | Snapshot-bound index (Python ast definitions, imports, tests; SQLite FTS5); context bundles with budgets, omissions and excerpts; citation checks; D05 project facts | **Done** |
+| F11–F24 | Python pack and workflow, proposals, editor, other packs, ... | In progress |
+| D06–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
 
 Acceptance results checked by the test suite (`tests/`):
 
