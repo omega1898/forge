@@ -17,6 +17,7 @@ Blueprint, design baseline 0.1 (4 November 2026)*.
 | D01 | `project.summary`: the standup skill as deterministic code over the event log, with time travel | **Done** |
 | F03 | Artifact store, workspace snapshots, approved source roots | **Done** |
 | F04 | Four-layer authorization; Linux namespace sandbox with cgroup limits; output collector; Podman/VM backends report unavailable | **Done** (Linux backend is for trusted code only; see below) |
+| F05 | Protected black-box evaluator; evidence, assessments, findings; D02 analyzer rules and verdict; D03 determinism and suite-strength probes | **Done** |
 | F04–F24 | Isolation, evaluation, engine, jobs, API/CLI, model gateway, packs, editor, ... | Not started |
 | D02–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
 

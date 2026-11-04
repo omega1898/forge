@@ -1,0 +1,112 @@
+{
+  "$defs": {
+    "JsonValue": {},
+    "RevisionRef": {
+      "additionalProperties": false,
+      "description": "A reference to a specific revision of a record.\n\nMeaning can change between revisions, so a test assessed against\nrequirement revision 2 must not silently satisfy revision 3.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z]+_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "RevisionRef",
+      "type": "object"
+    }
+  },
+  "$id": "forge:contracts/params.assessment.record",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "assessment_result": {
+      "enum": [
+        "pass",
+        "fail",
+        "inconclusive",
+        "not_run",
+        "error",
+        "not_applicable"
+      ],
+      "title": "Assessment Result",
+      "type": "string"
+    },
+    "assessor_ref": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Assessor Ref",
+      "type": "string"
+    },
+    "criterion_ref": {
+      "$ref": "#/$defs/RevisionRef"
+    },
+    "evidence_refs": {
+      "items": {
+        "pattern": "^evidence_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "limitations": {
+      "items": {
+        "maxLength": 1000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 32,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "snapshot_id": {
+      "anyOf": [
+        {
+          "pattern": "^snapshot_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Snapshot Id"
+    },
+    "summary": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Summary",
+      "type": "object"
+    },
+    "supersedes_assessment_id": {
+      "anyOf": [
+        {
+          "pattern": "^assessment_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersedes Assessment Id"
+    }
+  },
+  "required": [
+    "criterion_ref",
+    "snapshot_id",
+    "assessment_result",
+    "assessor_ref"
+  ],
+  "title": "AssessmentRecordParams",
+  "type": "object"
+}

@@ -80,9 +80,11 @@ def build_root(cfg: dict) -> None:
     for host_path in cfg["system_dirs"] + cfg["toolchain_paths"]:
         if os.path.lexists(host_path):
             bind(cfg, host_path, root + host_path)
-    for name in ("input", "scratch", "output", "tmp", "dev", "proc", "etc", "oldroot"):
+    for name in ("input", "case", "scratch", "output", "tmp", "dev", "proc", "etc", "oldroot"):
         make_dir(os.path.join(root, name))
     bind(cfg, cfg["input_dir"], root + "/input")
+    if cfg.get("case_dir"):
+        bind(cfg, cfg["case_dir"], root + "/case")
     bind(cfg, cfg["output_dir"], root + "/output", writable=True)
     run([cfg["mount"], "-t", "tmpfs", "-o",
          "size=%d,mode=0700,uid=%d,gid=%d,nosuid,nodev" % (cfg["scratch_bytes"], NOBODY, NOBODY),

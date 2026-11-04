@@ -139,6 +139,11 @@ class LinuxNamespaceBackend:
         new_root.mkdir(mode=0o700)
         output_dir.mkdir(mode=0o700)
         os.chmod(input_dir, 0o755)
+        if spec.case_dir is not None:
+            case_dir = Path(spec.case_dir)
+            if not case_dir.is_dir() or case_dir.is_symlink():
+                raise ForgeError(ErrorCode.INVALID_REQUEST, "sandbox case input must be a real directory")
+            os.chmod(case_dir, 0o755)
         limits = spec.limits
         # Output is a size- and inode-limited tmpfs owned by the workload user,
         # so filling it fails inside the job instead of filling the host disk.
@@ -152,6 +157,7 @@ class LinuxNamespaceBackend:
         config = {
             "new_root": str(new_root),
             "input_dir": str(input_dir),
+            "case_dir": spec.case_dir,
             "output_dir": str(output_dir),
             "system_dirs": SYSTEM_DIRS,
             "toolchain_paths": spec.toolchain_paths,

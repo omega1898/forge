@@ -27,6 +27,12 @@ from forge.contracts.commands import (
     RequirementCreateParams,
     TaskAddDependencyParams,
     TaskCreateParams,
+    ArtifactRegisterParams,
+    AssessmentRecordParams,
+    EvidenceRecordExecutionParams,
+    EvidenceRecordReviewParams,
+    FindingRecordParams,
+    SuiteAdmitParams,
     TaskTransitionParams,
     WorkspaceCaptureParams,
 )
@@ -195,6 +201,8 @@ def requirement_create(ctx: HandlerContext, command: Command) -> Outcome:
 
 def criterion_create(ctx: HandlerContext, command: Command) -> Outcome:
     params: CriterionCreateParams = command.params  # type: ignore[assignment]
+    if params.assessment_method == "black_box_cases":
+        _check_suite_reference(ctx, params.parameters)
     criterion_id = new_id("criterion")
     body = {
         "criterion_id": criterion_id,
@@ -523,10 +531,187 @@ def workspace_capture(ctx: HandlerContext, command: Command) -> Outcome:
     )
 
 
+# ------------------------------------------------- evaluator suites (F05) --
+
+
+def _check_suite_reference(ctx: HandlerContext, parameters: dict[str, Any]) -> None:
+    """A black-box criterion must name an admitted suite by artifact ID and digest."""
+    artifact_id, digest = parameters.get("suite_artifact_id"), parameters.get("suite_digest")
+    if not isinstance(artifact_id, str) or not isinstance(digest, str):
+        raise ForgeError(
+            ErrorCode.INVALID_REQUEST,
+            "black_box_cases criteria need parameters suite_artifact_id and suite_digest",
+        )
+    artifact = ctx.store.artifact(artifact_id)
+    if artifact is None or artifact.artifact_kind != "evaluator_suite":
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{artifact_id} is not an admitted evaluator suite")
+    if artifact.digest != digest:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, "suite_digest does not match the admitted suite")
+
+
+@dataclass(frozen=True)
+class PreparedSuite:
+    blob: BlobInfo
+    suite_id: str
+    case_count: int
+
+
+def prepare_suite_admit(ctx: PrepareContext, command: Command) -> PreparedSuite:
+    from forge.assessment.suite import EvaluatorSuite  # local: assessment depends on records
+
+    params: SuiteAdmitParams = command.params  # type: ignore[assignment]
+    try:
+        suite = EvaluatorSuite.model_validate(params.suite)
+    except ValueError as error:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"invalid evaluator suite: {str(error)[:500]}") from None
+    if ctx.blobs is None:
+        raise ForgeError(ErrorCode.MISSING_CAPABILITY, "no artifact store is configured")
+    blob = ctx.blobs.put_bytes(suite.canonical_bytes())
+    return PreparedSuite(blob=blob, suite_id=suite.suite_id, case_count=len(suite.cases))
+
+
+def suite_admit(ctx: HandlerContext, command: Command) -> Outcome:
+    prepared: PreparedSuite = ctx.prepared
+    artifact_id = new_id("artifact")
+    artifact = {
+        "artifact_id": artifact_id,
+        "digest": prepared.blob.digest,
+        "size": prepared.blob.size,
+        "content_type": "application/json",
+        "artifact_kind": "evaluator_suite",
+        "sensitivity": "sensitive",  # expected answers: keep out of model context
+        "retention": "keep",
+        "producer_ref": None,
+    }
+    return Outcome(
+        events=[DomainEvent("artifact.registered", {"artifact": artifact})],
+        result={
+            "suite_artifact_id": artifact_id,
+            "suite_digest": prepared.blob.digest,
+            "suite_id": prepared.suite_id,
+            "case_count": prepared.case_count,
+        },
+    )
+
+
+def artifact_register(ctx: HandlerContext, command: Command) -> Outcome:
+    params: ArtifactRegisterParams = command.params  # type: ignore[assignment]
+    if ctx.blobs is None or not ctx.blobs.exists(params.digest):
+        # A row must never point at bytes that were not published first.
+        raise ForgeError(ErrorCode.ARTIFACT_MISSING, f"no stored blob has digest {params.digest}")
+    artifact_id = new_id("artifact")
+    artifact = {"artifact_id": artifact_id, **params.model_dump(mode="json")}
+    return Outcome(
+        events=[DomainEvent("artifact.registered", {"artifact": artifact})],
+        result={"artifact_id": artifact_id},
+    )
+
+
+def _require_snapshot(ctx: HandlerContext, snapshot_id: str) -> None:
+    if ctx.store.snapshot(snapshot_id) is None:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{snapshot_id} does not exist", related_ids=[snapshot_id])
+
+
+def _require_artifacts(ctx: HandlerContext, artifact_ids: list[str]) -> None:
+    for artifact_id in artifact_ids:
+        if ctx.store.artifact(artifact_id) is None:
+            raise ForgeError(ErrorCode.ARTIFACT_MISSING, f"{artifact_id} does not exist", related_ids=[artifact_id])
+
+
+def evidence_record_execution(ctx: HandlerContext, command: Command) -> Outcome:
+    params: EvidenceRecordExecutionParams = command.params  # type: ignore[assignment]
+    _require_snapshot(ctx, params.snapshot_id)
+    _require_artifacts(ctx, params.artifact_refs)
+    evidence_id = new_id("evidence")
+    item = {
+        "evidence_id": evidence_id,
+        "origin": "execution",
+        "job_id": params.job_id,
+        "attempt_number": params.attempt_number,
+        "snapshot_id": params.snapshot_id,
+        "tool_ref": params.tool_ref,
+        "environment_digest": params.environment_digest,
+        "evaluator_digest": params.evaluator_digest,
+        "subject_ref": None,
+        "reviewer_id": None,
+        "observation_type": params.observation_type,
+        "observation": params.observation,
+        "artifact_refs": params.artifact_refs,
+    }
+    return Outcome(events=[DomainEvent("evidence.recorded", {"evidence": item})], result={"evidence_id": evidence_id})
+
+
+def evidence_record_review(ctx: HandlerContext, command: Command) -> Outcome:
+    """Attributed human review: no invented job, attempt or snapshot."""
+    params: EvidenceRecordReviewParams = command.params  # type: ignore[assignment]
+    if not ctx.actor.is_trusted_human:
+        raise ForgeError(ErrorCode.PERMISSION_DENIED, "review evidence is recorded by the human reviewer")
+    kind = id_prefix(params.subject_ref.id)
+    if kind == "artifact":
+        if ctx.store.artifact(params.subject_ref.id) is None:
+            raise ForgeError(ErrorCode.INVALID_REQUEST, f"{params.subject_ref.id} does not exist")
+    elif kind == "snapshot":
+        _require_snapshot(ctx, params.subject_ref.id)
+    else:
+        _check_ref(ctx, params.subject_ref, kind)
+    evidence_id = new_id("evidence")
+    item = {
+        "evidence_id": evidence_id,
+        "origin": "review",
+        "job_id": None,
+        "attempt_number": None,
+        "snapshot_id": None,
+        "tool_ref": None,
+        "environment_digest": None,
+        "evaluator_digest": None,
+        "subject_ref": params.subject_ref.model_dump(),
+        "reviewer_id": ctx.actor.actor_id,
+        "observation_type": params.observation_type,
+        "observation": params.observation,
+        "artifact_refs": [],
+    }
+    return Outcome(events=[DomainEvent("evidence.recorded", {"evidence": item})], result={"evidence_id": evidence_id})
+
+
+def assessment_record(ctx: HandlerContext, command: Command) -> Outcome:
+    params: AssessmentRecordParams = command.params  # type: ignore[assignment]
+    criterion = ctx.store.criterion(params.criterion_ref.id)
+    if criterion is None or params.criterion_ref.revision > criterion.revision:
+        raise ForgeError(
+            ErrorCode.INVALID_REQUEST,
+            f"{params.criterion_ref.id} revision {params.criterion_ref.revision} does not exist",
+        )
+    if params.snapshot_id is not None:
+        _require_snapshot(ctx, params.snapshot_id)
+    for evidence_id in params.evidence_refs:
+        if ctx.store.evidence(evidence_id) is None:
+            raise ForgeError(ErrorCode.INVALID_REQUEST, f"{evidence_id} does not exist", related_ids=[evidence_id])
+    if params.assessment_result in ("pass", "fail") and not params.evidence_refs:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, "a pass or fail assessment must cite evidence")
+    if params.supersedes_assessment_id and ctx.store.assessment(params.supersedes_assessment_id) is None:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{params.supersedes_assessment_id} does not exist")
+    assessment_id = new_id("assessment")
+    item = {"assessment_id": assessment_id, **params.model_dump(mode="json")}
+    return Outcome(
+        events=[DomainEvent("assessment.recorded", {"assessment": item})],
+        result={"assessment_id": assessment_id, "assessment_result": params.assessment_result},
+    )
+
+
+def finding_record(ctx: HandlerContext, command: Command) -> Outcome:
+    params: FindingRecordParams = command.params  # type: ignore[assignment]
+    if params.snapshot_id is not None:
+        _require_snapshot(ctx, params.snapshot_id)
+    finding_id = new_id("finding")
+    item = {"finding_id": finding_id, **params.model_dump(mode="json")}
+    return Outcome(events=[DomainEvent("finding.recorded", {"finding": item})], result={"finding_id": finding_id})
+
+
 Preparer = Callable[[PrepareContext, Command], Any]
 
 PREPARERS: dict[str, Preparer] = {
     "workspace.capture": prepare_workspace_capture,
+    "suite.admit": prepare_suite_admit,
 }
 
 
@@ -540,9 +725,22 @@ HANDLERS: dict[str, Handler] = {
     "decision.request": decision_request,
     "decision.record": decision_record,
     "workspace.capture": workspace_capture,
+    "suite.admit": suite_admit,
+    "artifact.register": artifact_register,
+    "evidence.record_execution": evidence_record_execution,
+    "evidence.record_review": evidence_record_review,
+    "assessment.record": assessment_record,
+    "finding.record": finding_record,
 }
 
 # Execution hosts report observations; they do not edit plans or decide.
 ALLOWED_ACTOR_KINDS: dict[str, frozenset[str]] = {
     method: frozenset({"human", "model", "system"}) for method in HANDLERS
 }
+# Only FORGE's own trusted services record what was measured. A client or a
+# model cannot write "pass" into the record by calling a method.
+for _method in ("artifact.register", "evidence.record_execution", "assessment.record", "finding.record"):
+    ALLOWED_ACTOR_KINDS[_method] = frozenset({"system"})
+# Generated tests stay proposals until a person (or FORGE itself) admits them.
+ALLOWED_ACTOR_KINDS["suite.admit"] = frozenset({"human", "system"})
+ALLOWED_ACTOR_KINDS["evidence.record_review"] = frozenset({"human"})

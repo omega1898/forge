@@ -22,7 +22,17 @@ from forge.contracts.base import IdempotencyKey, RevisionRef, Slug, StrictModel,
 from forge.contracts.clock import Timestamp
 from forge.contracts.digests import Digest, canonical_json_bytes
 from forge.contracts.errors import ErrorCode, ForgeError
-from forge.contracts.ids import ActorId, AnyId, CommandId, CriterionId, DecisionId, GrantId, ProjectId, TaskId
+from forge.contracts.ids import (
+    ActorId,
+    AnyId,
+    CommandId,
+    CriterionId,
+    DecisionId,
+    GrantId,
+    IdOf,
+    ProjectId,
+    TaskId,
+)
 from forge.contracts.paths import check_relative_path
 from forge.contracts.records import Budget, DecisionKind, TaskStatus, TaskType, WaiverPolicy
 from forge.contracts.versions import check_schema_version
@@ -37,6 +47,12 @@ Method = Literal[
     "decision.request",
     "decision.record",
     "workspace.capture",
+    "suite.admit",
+    "artifact.register",
+    "evidence.record_execution",
+    "evidence.record_review",
+    "assessment.record",
+    "finding.record",
 ]
 
 # Methods that change an existing record and therefore must say which version
@@ -186,6 +202,67 @@ class WorkspaceCaptureParams(StrictModel):
         return [check_relative_path(item) for item in value]
 
 
+class SuiteAdmitParams(StrictModel):
+    # The suite itself (validated as an EvaluatorSuite by the controller).
+    suite: dict[str, JsonValue]
+
+
+class ArtifactRegisterParams(StrictModel):
+    digest: Digest
+    size: int = Field(ge=0)
+    content_type: Text(100)
+    artifact_kind: Slug
+    sensitivity: Literal["public", "project", "sensitive"] = "project"
+    retention: Literal["keep", "ephemeral"] = "keep"
+    producer_ref: AnyId | None = None
+
+
+class EvidenceRecordExecutionParams(StrictModel):
+    job_id: IdOf("job")
+    attempt_number: int = Field(ge=1)
+    snapshot_id: IdOf("snapshot")
+    tool_ref: Text(200)
+    environment_digest: Digest
+    evaluator_digest: Digest | None = None
+    observation_type: Slug
+    observation: dict[str, JsonValue]
+    artifact_refs: list[IdOf("artifact")] = Field(default_factory=list, max_length=64)
+
+
+class EvidenceRecordReviewParams(StrictModel):
+    subject_ref: RevisionRef
+    observation_type: Slug = "review_observation"
+    observation: dict[str, JsonValue]
+
+
+class AssessmentRecordParams(StrictModel):
+    criterion_ref: RevisionRef
+    snapshot_id: IdOf("snapshot") | None
+    evidence_refs: list[IdOf("evidence")] = Field(default_factory=list, max_length=64)
+    assessment_result: Literal["pass", "fail", "inconclusive", "not_run", "error", "not_applicable"]
+    assessor_ref: Text(200)
+    limitations: list[Text(1000)] = Field(default_factory=list, max_length=32)
+    summary: dict[str, JsonValue] = Field(default_factory=dict)
+    supersedes_assessment_id: IdOf("assessment") | None = None
+
+
+class FindingRecordParams(StrictModel):
+    rule_id: Text(100)
+    claim: Text(2000)
+    severity: Literal["critical", "high", "medium", "low", "info"]
+    confirmation: Literal["suspected", "confirmed"] = "suspected"
+    path: str | None = None
+    line: int | None = Field(default=None, ge=1)
+    fingerprint: Digest
+    snapshot_id: IdOf("snapshot") | None = None
+    evidence_refs: list[IdOf("evidence")] = Field(default_factory=list, max_length=64)
+
+    @field_validator("path")
+    @classmethod
+    def _path(cls, value: str | None) -> str | None:
+        return None if value is None else check_relative_path(value)
+
+
 PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "project.create": ProjectCreateParams,
     "requirement.create": RequirementCreateParams,
@@ -196,6 +273,12 @@ PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "decision.request": DecisionRequestParams,
     "decision.record": DecisionRecordParams,
     "workspace.capture": WorkspaceCaptureParams,
+    "suite.admit": SuiteAdmitParams,
+    "artifact.register": ArtifactRegisterParams,
+    "evidence.record_execution": EvidenceRecordExecutionParams,
+    "evidence.record_review": EvidenceRecordReviewParams,
+    "assessment.record": AssessmentRecordParams,
+    "finding.record": FindingRecordParams,
 }
 
 

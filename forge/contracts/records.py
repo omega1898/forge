@@ -17,10 +17,14 @@ from forge.contracts.ids import (
     ActorId,
     AnyId,
     ArtifactId,
+    AssessmentId,
     ControllerId,
     CriterionId,
     DecisionId,
+    EvidenceId,
+    FindingId,
     GrantId,
+    JobId,
     ProjectId,
     RequirementId,
     SnapshotId,
@@ -142,6 +146,52 @@ class Snapshot(CommonFields):
     dirty_paths: list[str]
     parent_snapshot_id: SnapshotId | None
     origin: Literal["capture", "candidate"]
+
+
+AssessmentResult = Literal["pass", "fail", "inconclusive", "not_run", "error", "not_applicable"]
+Severity = Literal["critical", "high", "medium", "low", "info"]
+
+
+class Evidence(CommonFields):
+    evidence_id: EvidenceId
+    origin: Literal["execution", "review"]
+    job_id: JobId | None
+    attempt_number: int | None
+    snapshot_id: SnapshotId | None
+    tool_ref: str | None
+    environment_digest: Digest | None
+    evaluator_digest: Digest | None
+    subject_ref: RevisionRef | None
+    reviewer_id: ActorId | None
+    observation_type: Slug
+    observation: dict[str, JsonValue]
+    artifact_refs: list[ArtifactId]
+
+
+class Assessment(CommonFields):
+    assessment_id: AssessmentId
+    criterion_ref: RevisionRef
+    snapshot_id: SnapshotId | None
+    evidence_refs: list[EvidenceId]
+    assessment_result: AssessmentResult
+    assessor_ref: str
+    limitations: list[str]
+    summary: dict[str, JsonValue]
+    supersedes_assessment_id: AssessmentId | None
+
+
+class Finding(CommonFields):
+    finding_id: FindingId
+    rule_id: str
+    claim: str
+    severity: Severity
+    status: Literal["open", "resolved", "waived", "false_positive"]
+    confirmation: Literal["suspected", "confirmed"]
+    path: str | None
+    line: int | None
+    fingerprint: Digest
+    snapshot_id: SnapshotId | None
+    evidence_refs: list[EvidenceId]
 
 
 class EventRecord(StrictModel):

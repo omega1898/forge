@@ -1,0 +1,54 @@
+{
+  "$defs": {
+    "JsonValue": {},
+    "RevisionRef": {
+      "additionalProperties": false,
+      "description": "A reference to a specific revision of a record.\n\nMeaning can change between revisions, so a test assessed against\nrequirement revision 2 must not silently satisfy revision 3.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z]+_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "RevisionRef",
+      "type": "object"
+    }
+  },
+  "$id": "forge:contracts/params.evidence.record_review",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "observation": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Observation",
+      "type": "object"
+    },
+    "observation_type": {
+      "default": "review_observation",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Observation Type",
+      "type": "string"
+    },
+    "subject_ref": {
+      "$ref": "#/$defs/RevisionRef"
+    }
+  },
+  "required": [
+    "subject_ref",
+    "observation"
+  ],
+  "title": "EvidenceRecordReviewParams",
+  "type": "object"
+}

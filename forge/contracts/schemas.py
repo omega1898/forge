@@ -36,6 +36,12 @@ SCHEMA_MODELS = {
     "params.decision.request": commands.DecisionRequestParams,
     "params.decision.record": commands.DecisionRecordParams,
     "params.workspace.capture": commands.WorkspaceCaptureParams,
+    "params.suite.admit": commands.SuiteAdmitParams,
+    "params.artifact.register": commands.ArtifactRegisterParams,
+    "params.evidence.record_execution": commands.EvidenceRecordExecutionParams,
+    "params.evidence.record_review": commands.EvidenceRecordReviewParams,
+    "params.assessment.record": commands.AssessmentRecordParams,
+    "params.finding.record": commands.FindingRecordParams,
     "record.project": records.Project,
     "record.requirement": records.Requirement,
     "record.criterion": records.Criterion,
@@ -44,6 +50,9 @@ SCHEMA_MODELS = {
     "record.event": records.EventRecord,
     "record.artifact": records.Artifact,
     "record.snapshot": records.Snapshot,
+    "record.evidence": records.Evidence,
+    "record.assessment": records.Assessment,
+    "record.finding": records.Finding,
     "report.project_summary": ProjectSummary,
 }
 

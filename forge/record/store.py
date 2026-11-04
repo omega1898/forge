@@ -22,6 +22,9 @@ from forge.contracts.clock import Clock, SystemClock
 from forge.contracts.errors import ErrorCode, ForgeError
 from forge.contracts.records import (
     Artifact,
+    Assessment,
+    Evidence,
+    Finding,
     Criterion,
     Decision,
     EventRecord,
@@ -185,6 +188,37 @@ class RecordReader:
     def snapshots(self) -> list[Snapshot]:
         rows = self.conn.execute("SELECT * FROM snapshots ORDER BY created_at, snapshot_id")
         return [_snapshot_from_row(row) for row in rows]
+
+    def evidence(self, evidence_id: str) -> Evidence | None:
+        row = self.conn.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,)).fetchone()
+        return None if row is None else _evidence_from_row(row)
+
+    def assessment(self, assessment_id: str) -> Assessment | None:
+        row = self.conn.execute(
+            "SELECT * FROM assessments WHERE assessment_id = ?", (assessment_id,)
+        ).fetchone()
+        return None if row is None else _assessment_from_row(row)
+
+    def assessments(self, *, criterion_id: str | None = None, snapshot_id: str | None = None) -> list[Assessment]:
+        sql = "SELECT * FROM assessments WHERE 1 = 1"
+        values: list[Any] = []
+        if criterion_id is not None:
+            sql += " AND criterion_id = ?"
+            values.append(criterion_id)
+        if snapshot_id is not None:
+            sql += " AND snapshot_id = ?"
+            values.append(snapshot_id)
+        sql += " ORDER BY created_at, assessment_id"
+        return [_assessment_from_row(row) for row in self.conn.execute(sql, values)]
+
+    def findings(self, *, snapshot_id: str | None = None) -> list[Finding]:
+        sql = "SELECT * FROM findings"
+        values: list[Any] = []
+        if snapshot_id is not None:
+            sql += " WHERE snapshot_id = ?"
+            values.append(snapshot_id)
+        sql += " ORDER BY created_at, finding_id"
+        return [_finding_from_row(row) for row in self.conn.execute(sql, values)]
 
     def events(self, *, after_seq: int = 0, limit: int = DEFAULT_PAGE) -> list[EventRecord]:
         limit = max(1, min(int(limit), MAX_PAGE))
@@ -358,6 +392,57 @@ def _snapshot_from_row(row: sqlite3.Row) -> Snapshot:
         dirty_paths=json.loads(row["dirty_paths_json"]),
         parent_snapshot_id=row["parent_snapshot_id"],
         origin=row["origin"],
+    )
+
+
+def _evidence_from_row(row: sqlite3.Row) -> Evidence:
+    return Evidence(
+        **_common(row),
+        evidence_id=row["evidence_id"],
+        origin=row["origin"],
+        job_id=row["job_id"],
+        attempt_number=row["attempt_number"],
+        snapshot_id=row["snapshot_id"],
+        tool_ref=row["tool_ref"],
+        environment_digest=row["environment_digest"],
+        evaluator_digest=row["evaluator_digest"],
+        subject_ref=None if row["subject_ref_json"] is None else json.loads(row["subject_ref_json"]),
+        reviewer_id=row["reviewer_id"],
+        observation_type=row["observation_type"],
+        observation=json.loads(row["observation_json"]),
+        artifact_refs=json.loads(row["artifact_refs_json"]),
+    )
+
+
+def _assessment_from_row(row: sqlite3.Row) -> Assessment:
+    return Assessment(
+        **_common(row),
+        assessment_id=row["assessment_id"],
+        criterion_ref={"id": row["criterion_id"], "revision": row["criterion_revision"]},
+        snapshot_id=row["snapshot_id"],
+        evidence_refs=json.loads(row["evidence_refs_json"]),
+        assessment_result=row["assessment_result"],
+        assessor_ref=row["assessor_ref"],
+        limitations=json.loads(row["limitations_json"]),
+        summary=json.loads(row["summary_json"]),
+        supersedes_assessment_id=row["supersedes_assessment_id"],
+    )
+
+
+def _finding_from_row(row: sqlite3.Row) -> Finding:
+    return Finding(
+        **_common(row),
+        finding_id=row["finding_id"],
+        rule_id=row["rule_id"],
+        claim=row["claim"],
+        severity=row["severity"],
+        status=row["status"],
+        confirmation=row["confirmation"],
+        path=row["path"],
+        line=row["line"],
+        fingerprint=row["fingerprint"],
+        snapshot_id=row["snapshot_id"],
+        evidence_refs=json.loads(row["evidence_refs_json"]),
     )
 
 

@@ -29,6 +29,7 @@ Projector = Callable[[sqlite3.Connection, EventRecord], None]
 
 # Order matters when clearing: children before parents (foreign keys).
 PROJECTION_TABLES = (
+    "findings", "assessments", "evidence",
     "task_dependencies", "decisions", "tasks", "snapshots", "artifacts", "records", "projects",
 )
 
@@ -252,6 +253,54 @@ def _snapshot_captured(conn: sqlite3.Connection, event: EventRecord) -> None:
     )
 
 
+def _evidence_recorded(conn: sqlite3.Connection, event: EventRecord) -> None:
+    item = event.payload["evidence"]
+    conn.execute(
+        "INSERT INTO evidence (evidence_id, project_id, origin, job_id, attempt_number, snapshot_id,"
+        " tool_ref, environment_digest, evaluator_digest, subject_ref_json, reviewer_id,"
+        " observation_type, observation_json, artifact_refs_json, created_at, created_by,"
+        " record_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+        (
+            item["evidence_id"], event.project_id, item["origin"], item["job_id"],
+            item["attempt_number"], item["snapshot_id"], item["tool_ref"],
+            item["environment_digest"], item["evaluator_digest"],
+            None if item["subject_ref"] is None else _json(item["subject_ref"]),
+            item["reviewer_id"], item["observation_type"], _json(item["observation"]),
+            _json(item["artifact_refs"]), event.occurred_at, event.actor_id,
+        ),
+    )
+
+
+def _assessment_recorded(conn: sqlite3.Connection, event: EventRecord) -> None:
+    item = event.payload["assessment"]
+    conn.execute(
+        "INSERT INTO assessments (assessment_id, project_id, criterion_id, criterion_revision,"
+        " snapshot_id, evidence_refs_json, assessment_result, assessor_ref, limitations_json,"
+        " summary_json, supersedes_assessment_id, created_at, created_by, record_version)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+        (
+            item["assessment_id"], event.project_id, item["criterion_ref"]["id"],
+            item["criterion_ref"]["revision"], item["snapshot_id"], _json(item["evidence_refs"]),
+            item["assessment_result"], item["assessor_ref"], _json(item["limitations"]),
+            _json(item["summary"]), item["supersedes_assessment_id"], event.occurred_at, event.actor_id,
+        ),
+    )
+
+
+def _finding_recorded(conn: sqlite3.Connection, event: EventRecord) -> None:
+    item = event.payload["finding"]
+    conn.execute(
+        "INSERT INTO findings (finding_id, project_id, rule_id, claim, severity, status,"
+        " confirmation, path, line, fingerprint, snapshot_id, evidence_refs_json, created_at,"
+        " created_by, record_version) VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+        (
+            item["finding_id"], event.project_id, item["rule_id"], item["claim"], item["severity"],
+            item["confirmation"], item["path"], item["line"], item["fingerprint"], item["snapshot_id"],
+            _json(item["evidence_refs"]), event.occurred_at, event.actor_id,
+        ),
+    )
+
+
 PROJECTORS: dict[tuple[str, int], Projector] = {
     ("project.created", 1): _project_created,
     ("requirement.created", 1): _record_created("requirement"),
@@ -264,6 +313,9 @@ PROJECTORS: dict[tuple[str, int], Projector] = {
     ("artifact.registered", 1): _artifact_registered,
     ("artifact.tombstoned", 1): _artifact_tombstoned,
     ("snapshot.captured", 1): _snapshot_captured,
+    ("evidence.recorded", 1): _evidence_recorded,
+    ("assessment.recorded", 1): _assessment_recorded,
+    ("finding.recorded", 1): _finding_recorded,
 }
 
 

@@ -63,6 +63,9 @@ class Controller:
         self.trust_store = trust_store
         self.controller_id = controller_id or new_id("controller")
         self._write_lock = threading.Lock()
+        # The identity FORGE's own trusted services (evaluator, dispatcher)
+        # use when recording what they measured.
+        self.system_actor = ActorContext(actor_id=new_id("actor"), kind="system", channel="trusted_local")
         self._listeners: list[Listener] = []
         self.listener_errors: list[str] = []
 

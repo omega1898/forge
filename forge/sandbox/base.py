@@ -52,6 +52,8 @@ class SandboxSpec(StrictModel):
 
     job_key: Slug
     input_dir: str            # materialized snapshot, mounted read-only at /input
+    # Optional per-case input files, mounted read-only at /case.
+    case_dir: str | None = None
     argv: list[str] = Field(min_length=1, max_length=256)
     cwd: Literal["/input", "/scratch"] = "/scratch"
     env: dict[str, str] = Field(default_factory=dict)
