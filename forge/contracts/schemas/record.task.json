@@ -1,0 +1,181 @@
+{
+  "$defs": {
+    "Budget": {
+      "additionalProperties": false,
+      "description": "Upper limits a task may consume. Milliseconds, measured monotonically.",
+      "properties": {
+        "max_attempts": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "max_wall_ms": {
+          "maximum": 86400000,
+          "minimum": 1,
+          "title": "Max Wall Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_wall_ms",
+        "max_attempts"
+      ],
+      "title": "Budget",
+      "type": "object"
+    },
+    "RevisionRef": {
+      "additionalProperties": false,
+      "description": "A reference to a specific revision of a record.\n\nMeaning can change between revisions, so a test assessed against\nrequirement revision 2 must not silently satisfy revision 3.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z]+_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "RevisionRef",
+      "type": "object"
+    }
+  },
+  "$id": "forge:contracts/record.task",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_ref": {
+      "anyOf": [
+        {
+          "pattern": "^grant_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Authority Ref"
+    },
+    "budget": {
+      "$ref": "#/$defs/Budget"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "created_by": {
+      "pattern": "^actor_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Created By",
+      "type": "string"
+    },
+    "criterion_refs": {
+      "items": {
+        "$ref": "#/$defs/RevisionRef"
+      },
+      "title": "Criterion Refs",
+      "type": "array"
+    },
+    "depends_on": {
+      "items": {
+        "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "title": "Depends On",
+      "type": "array"
+    },
+    "input_refs": {
+      "items": {
+        "$ref": "#/$defs/RevisionRef"
+      },
+      "title": "Input Refs",
+      "type": "array"
+    },
+    "project_id": {
+      "pattern": "^project_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "record_version": {
+      "minimum": 1,
+      "title": "Record Version",
+      "type": "integer"
+    },
+    "requirement_refs": {
+      "items": {
+        "$ref": "#/$defs/RevisionRef"
+      },
+      "title": "Requirement Refs",
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "queued",
+        "running",
+        "blocked",
+        "waiting_for_user",
+        "completed",
+        "failed",
+        "cancelled"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_type": {
+      "enum": [
+        "prepare",
+        "execute",
+        "assess",
+        "decide"
+      ],
+      "title": "Task Type",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "updated_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "workflow_revision": {
+      "minimum": 1,
+      "title": "Workflow Revision",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "project_id",
+    "created_at",
+    "created_by",
+    "record_version",
+    "task_id",
+    "task_type",
+    "title",
+    "status",
+    "requirement_refs",
+    "criterion_refs",
+    "input_refs",
+    "authority_ref",
+    "budget",
+    "workflow_revision",
+    "depends_on",
+    "updated_at"
+  ],
+  "title": "Task",
+  "type": "object"
+}

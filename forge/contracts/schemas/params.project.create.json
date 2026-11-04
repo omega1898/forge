@@ -1,0 +1,40 @@
+{
+  "$id": "forge:contracts/params.project.create",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "objective": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Objective",
+      "type": "string"
+    },
+    "profile_id": {
+      "default": "standard",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "source_roots": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_]{0,63}$",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Source Roots",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "objective"
+  ],
+  "title": "ProjectCreateParams",
+  "type": "object"
+}

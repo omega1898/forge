@@ -1,0 +1,6 @@
+# Migration checksums are computed over exact bytes. If Git converted line
+# endings on Windows, the same migration would get a different checksum and
+# FORGE would (correctly) refuse to open databases created on another OS.
+*.sql text eol=lf
+*.json text eol=lf
+*.py text eol=lf

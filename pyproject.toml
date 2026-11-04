@@ -1,0 +1,43 @@
+# Package definition for FORGE.
+# Purpose: tell Python's packaging tools what this project is called, which
+# Python versions it supports, what it depends on, and which non-Python files
+# (SQL migrations, JSON schemas) must ship inside the installed package so a
+# fresh, disconnected installation can load them.
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "forge"
+version = "0.1.0.dev0"
+description = "FORGE: an offline software engineering controller (design baseline 0.1)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # Typed validation of every request that crosses a module boundary.
+    "pydantic>=2.6,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    # Used only in tests: proves the exported JSON Schemas are usable by a
+    # non-Python client (the future editor extension).
+    "jsonschema>=4.20",
+]
+
+[project.scripts]
+forge-dev = "forge.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["forge*"]
+
+[tool.setuptools.package-data]
+"forge.record" = ["migrations/*.sql"]
+"forge.authority" = ["migrations/*.sql"]
+"forge.contracts" = ["schemas/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
