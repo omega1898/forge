@@ -33,4 +33,4 @@ jobs:
         # The isolation backend needs root; without this step its tests skip
         # on CI and would prove nothing.
         if: runner.os == 'Linux'
-        run: sudo "$(command -v python)" -m pytest -q tests/test_sandbox.py
+        run: sudo "$(command -v python)" -m pytest -q tests/test_sandbox.py tests/test_native_pack.py

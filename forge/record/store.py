@@ -216,6 +216,10 @@ class RecordReader:
         sql += " ORDER BY recorded_seq, assessment_id"
         return [_assessment_from_row(row) for row in self.conn.execute(sql, values)]
 
+    def finding(self, finding_id: str) -> Finding | None:
+        row = self.conn.execute("SELECT * FROM findings WHERE finding_id = ?", (finding_id,)).fetchone()
+        return None if row is None else _finding_from_row(row)
+
     def findings(self, *, snapshot_id: str | None = None) -> list[Finding]:
         sql = "SELECT * FROM findings"
         values: list[Any] = []

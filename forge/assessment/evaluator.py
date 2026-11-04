@@ -25,6 +25,7 @@ import json
 import os
 import platform
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
@@ -96,8 +97,15 @@ def run_suite(
     limits: ResourceLimits,
     repeat: int = 1,
     toolchain_paths: list[str] | None = None,
+    env: dict[str, str] | None = None,
+    on_observation: Callable[[str, ExecutionObservation], None] | None = None,
 ) -> SuiteRun:
-    """Run every case (repeat > 1 also checks that results are deterministic)."""
+    """Run every case (repeat > 1 also checks that results are deterministic).
+
+    `env` adds fixed, evaluator-chosen variables (for example sanitizer
+    options); `on_observation` lets a pack inspect the full observation of
+    each case's first attempt (for example to parse sanitizer reports).
+    """
     work_root = Path(work_root)
     work_root.mkdir(parents=True, exist_ok=True)
     case_limits = limits.model_copy(update={"wall_ms": min(limits.wall_ms, suite.case_wall_ms)})
@@ -120,11 +128,14 @@ def run_suite(
                 limits=case_limits,
                 stdin=case.stdin(),
                 toolchain_paths=toolchain_paths or [],
+                env=env or {},
             )
             sandbox_dir = work_root / f"run-{case.case_id}-{attempt}"
             observation = backend.run(spec, sandbox_dir)
             try:
                 runs.append(compare(case, observation))
+                if on_observation is not None and attempt == 0:
+                    on_observation(case.case_id, observation)
             finally:
                 destroy = getattr(backend, "destroy", None)
                 if destroy is not None:
