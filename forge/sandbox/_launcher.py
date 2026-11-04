@@ -59,7 +59,7 @@ def make_dir(path: str, mode: int = 0o755) -> None:
     os.makedirs(path, mode=mode, exist_ok=True)
 
 
-def bind(cfg: dict, source: str, target: str, writable: bool = False) -> None:
+def bind(cfg: dict, source: str, target: str, writable: bool = False, device: bool = False) -> None:
     if os.path.islink(source):
         os.symlink(os.readlink(source), target)
         return
@@ -69,7 +69,8 @@ def bind(cfg: dict, source: str, target: str, writable: bool = False) -> None:
         make_dir(os.path.dirname(target))
         open(target, "a").close()
     run([cfg["mount"], "--bind", source, target])
-    options = "remount,bind,nosuid,nodev" + ("" if writable else ",ro")
+    # Device nodes (/dev/null and friends) need a mount without nodev to be usable.
+    options = "remount,bind,nosuid" + ("" if device else ",nodev") + ("" if writable else ",ro")
     run([cfg["mount"], "-o", options, target])
 
 
@@ -93,7 +94,7 @@ def build_root(cfg: dict) -> None:
          "size=%d,mode=1777,nosuid,nodev" % cfg["tmp_bytes"], "forge-tmp", root + "/tmp"])
     run([cfg["mount"], "-t", "tmpfs", "-o", "size=64k,mode=0755,nosuid", "forge-dev", root + "/dev"])
     for device in ("null", "zero", "full", "random", "urandom"):
-        bind(cfg, "/dev/" + device, root + "/dev/" + device, writable=True)
+        bind(cfg, "/dev/" + device, root + "/dev/" + device, writable=True, device=True)
     run([cfg["mount"], "-t", "proc", "-o", "nosuid,nodev,noexec", "proc", root + "/proc"])
     with open(root + "/etc/passwd", "w") as handle:
         handle.write("nobody:x:%d:%d:nobody:/scratch:/usr/sbin/nologin\n" % (NOBODY, NOBODY))

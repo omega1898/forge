@@ -77,6 +77,27 @@ def test_workload_is_unprivileged(job) -> None:  # noqa: ANN001
     assert obs.stdout.decode().split() == ["65534", "65534", "0000000000000000", "0000000000000000", "1"]
 
 
+def test_standard_devices_work_but_no_other_device_can_be_created(job) -> None:  # noqa: ANN001
+    code = (
+        "import os, subprocess\n"
+        "with open('/dev/null', 'r+b') as h: h.write(b'gone'); assert h.read() == b''\n"
+        "assert len(open('/dev/urandom', 'rb').read(16)) == 16\n"
+        "assert open('/dev/zero', 'rb').read(4) == bytes(4)\n"
+        "subprocess.run(['true'], stdout=subprocess.DEVNULL, check=True)\n"
+        "try:\n"
+        "    os.mknod('/scratch/mem', 0o600 | 0o020000, os.makedev(1, 1))\n"
+        "    print('mknod allowed')\n"
+        "except OSError:\n"
+        "    print('mknod denied')\n"
+        "print(sorted(os.listdir('/dev')))\n"
+    )
+    obs = job(code)
+    assert obs.exit_code == 0, obs.stderr
+    lines = obs.stdout.decode().splitlines()
+    assert lines[0] == "mknod denied"
+    assert lines[1] == str(sorted(["full", "null", "random", "urandom", "zero"]))
+
+
 def test_seeded_host_files_are_invisible_and_writes_are_denied_ex_t03(job, tmp_path: Path) -> None:  # noqa: ANN001
     canary = tmp_path / "host-canary.txt"
     canary.write_text("HOST SECRET")

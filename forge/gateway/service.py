@@ -59,8 +59,10 @@ class ModelGateway:
         *,
         adapters: dict[str, ModelAdapter],
         max_concurrent: int = 1,
+        scheduler=None,  # noqa: ANN001 - forge.performance.scheduler.ResourceScheduler
     ) -> None:
         self.controller = controller
+        self.scheduler = scheduler
         self.adapters = adapters
         self.configs: dict[str, ModelConfig] = {}
         self.reports: dict[str, CapabilityReport] = {}
@@ -168,6 +170,16 @@ class ModelGateway:
         if not self._slots.acquire(timeout=deadline_ms / 1000):
             return self._finish(call_id, config, slot_id, task_id, "timeout", redacted_messages, None, None,
                                 ["no compute slot became free before the deadline"], 0, sorted(set(redactions)))
+        # Inference shares the machine with other shared work but never with an
+        # exclusive measurement; it waits for one to finish (EX-T13).
+        machine_lease = None
+        if self.scheduler is not None:
+            machine_lease = self.scheduler.acquire("inference", call_id, timeout_s=deadline_ms / 1000)
+            if machine_lease is None:
+                self._slots.release()
+                return self._finish(call_id, config, slot_id, task_id, "timeout", redacted_messages, None, None,
+                                    ["the machine stayed reserved for an exclusive measurement past the deadline"],
+                                    0, sorted(set(redactions)))
         outcome: dict[str, Any] = {}
 
         def work() -> None:
@@ -179,6 +191,8 @@ class ModelGateway:
                 outcome["transport"] = str(error)
             finally:
                 # The reservation is released only when the provider really returns.
+                if machine_lease is not None:
+                    self.scheduler.release(machine_lease)
                 self._slots.release()
                 with self._lock:
                     self._calls.pop(call_id, None)
