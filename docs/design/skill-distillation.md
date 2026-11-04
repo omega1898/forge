@@ -347,7 +347,69 @@ iteration, stop after five iterations and report.
 
 ### 5.4 Assurance skills (transferred from finance)
 
-<!-- ASSURANCE -->
+These finance skills were studied because auditors solved "how do you prove
+a control worked" decades ago, and FORGE's evidence model faces the same
+question. Of 79 procedure steps across the five skills, the extraction
+classified 41 as D, 20 as S, 7 as O and 11 as H. Every human step is a
+sign-off, a risk rating, a severity call or an escalation; every open step
+is remediation design or root cause.
+
+**sox-testing and audit-support → testing whether an engineering control
+operated.** "Every merged change had a non-author approval" and "every
+deploy passed the gate" are controls. Transferable code: seeded random or
+systematic sample selection (interval = population ÷ sample size, random
+start) with the seed recorded; population completeness checked before
+sampling (the blueprint's dataset identity); per-sample pass/fail with an
+exception log; evidence rejected unless dated, attributed and sourced (the
+blueprint's evidence origin rules); "test an automated gate once, then
+prove its configuration did not change" (evaluator configuration digests);
+deficiencies aggregated by component. *Does not transfer:* financial
+materiality, and the audit sample-size tables, which are convention rather
+than statistics and carry no confidence guarantee outside audit.
+*Home:* F05 assessment, F07 jobs; a later "process assurance" capability
+that audits FORGE's own records.
+
+**close-management → release and project tracking.** A leveled dependency
+map is a task graph in topological layers; the critical path is the same
+concept; "complete means finished and reviewed" is a definition-of-done
+gate; soft close, hard close and period lock map to code freeze, release cut
+and tag; "adjustments after soft close" map to changes after freeze, and
+"restatements" to escaped defects. All D, and the FORGE engine already
+holds the graph. The extraction found the skill's own plan has
+dependencies inside a level that it never declares, which FORGE's explicit
+edges and cycle check would refuse. *Home:* engine (F06), `project.summary`
+(F08).
+
+**reconciliation → migration and output comparison (F20).** Compare control
+totals, then match records by key; sort every unmatched item into one of
+three buckets (timing: expected to clear; known defect: needs correction;
+unexplained: investigate); age open items and escalate by age; refuse to
+close with any unexplained difference; flag a recurring difference type as
+a systemic defect; the reconciler must not be the person who produced the
+output. All D except bucket assignment for ambiguous items (S, with the
+evidence attached). This is close to the blueprint's migration
+"comparison contract with accepted deltas".
+
+**variance-analysis → performance regression analysis (F18).** Split a
+total change into drivers (per-request cost × request count; traffic mix
+shifting between endpoints) in a bridge whose drivers must sum to the total;
+thresholds per comparison type, triggered when either the absolute or the
+percentage limit is exceeded; a fixed investigation order. *Does not
+transfer:* additive decomposition for percentiles or ratios; finance
+threshold percentages, which are not engineering noise floors.
+
+**The arithmetic lesson.** The skill's three-way price/volume/mix formulas
+leave out the interaction term (Δvolume × Δprice). On the skill's own
+example (10,000 units at $50 budget, 11,000 at $48 actual) they sum to
++$30,000 against an actual variance of +$28,000, so the skill's own rule
+"start + drivers = end" fails. This was reproduced independently in Python
+during this analysis. A frontier model following this skill would likely
+repeat the error with confidence; a FORGE implementation would carry the
+bridge invariant as a property test and fail on the first example. The
+extraction also found the five skills disagree on vocabularies (four versus
+five conclusion values, two different risk scales, overlapping day-90 aging
+buckets). Encoding rules as versioned, tested data catches both kinds of
+defect; prose instructions catch neither.
 
 ### 5.5 General skills
 
