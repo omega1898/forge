@@ -120,6 +120,7 @@ class LinuxNamespaceBackend:
             capabilities=sorted(caps),
             suitable_for_hostile_code=False,
             notes=notes,
+            virtualization=detect_virtualization(),
         )
 
     # ------------------------------------------------------------------ run
@@ -299,6 +300,28 @@ class LinuxNamespaceBackend:
         if output_dir.exists():
             subprocess.run([self._tools["umount"], "-l", str(output_dir)], check=False)
         shutil.rmtree(work_dir, ignore_errors=True)
+
+
+def detect_virtualization(proc: str = "/proc", sys_root: str = "/sys") -> str:
+    """Best-effort and recorded as observed: wsl, container, vm, none or unknown."""
+    def read(path: str) -> str:
+        try:
+            with open(path, encoding="utf-8", errors="replace") as handle:
+                return handle.read(65536)
+        except OSError:
+            return ""
+
+    if "microsoft" in read(f"{proc}/version").lower():
+        return "wsl"
+    if os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv"):
+        return "container"
+    cpuinfo = read(f"{proc}/cpuinfo")
+    if not cpuinfo:
+        return "unknown"
+    flags = next((line for line in cpuinfo.splitlines() if line.startswith(("flags", "Features"))), "")
+    if " hypervisor" in flags or read(f"{sys_root}/hypervisor/type").strip():
+        return "vm"
+    return "none"
 
 
 def _read_all(fd: int) -> str:

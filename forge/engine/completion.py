@@ -26,6 +26,7 @@ from pydantic import Field
 from forge.contracts.base import RevisionRef, StrictModel
 from forge.contracts.clock import parse_timestamp
 from forge.contracts.records import Assessment, Criterion, Decision, Task
+from forge.platforms import environment_matches
 
 CompletionReason = Literal[
     "criteria_satisfied",
@@ -41,6 +42,7 @@ class BlockingResult(StrictModel):
     assessment_id: str
     assessment_result: str
     waiver_forbidden: bool
+    environment: str | None = None
 
 
 class CompletionEvaluation(StrictModel):
@@ -52,6 +54,8 @@ class CompletionEvaluation(StrictModel):
     blocking_results: list[BlockingResult] = Field(default_factory=list)
     applicable_waivers: list[str] = Field(default_factory=list)
     used_assessments: list[str] = Field(default_factory=list)
+    # "criterion_id:environment" pairs with no result for that platform.
+    missing_environments: list[str] = Field(default_factory=list)
     explanation: str
 
 
@@ -96,6 +100,7 @@ def evaluate_completion(
     blocking: list[BlockingResult] = []
     waivers_used: list[str] = []
     used: list[str] = []
+    missing_environments: list[str] = []
     for ref in task.criterion_refs:
         candidates = [
             a for a in assessments
@@ -103,29 +108,42 @@ def evaluate_completion(
             and a.criterion_ref.revision == ref.revision
             and (snapshot_id is None or a.snapshot_id == snapshot_id)
         ]
-        if not candidates:
-            missing.append(ref)
-            continue
-        # The event log orders records; timestamps can tie within a millisecond.
-        latest = max(candidates, key=lambda a: (a.recorded_seq or 0, a.created_at))
-        used.append(latest.assessment_id)
-        result = latest.assessment_result
-        if result == "pass" or (result == "not_applicable" and latest.limitations):
-            satisfied.append(ref)
-            continue
         criterion = criteria.get(ref.id)
-        waiver_forbidden = criterion is None or criterion.waiver_policy == "forbidden"
-        waiver = None if waiver_forbidden else _applicable_waiver(ref, decisions, now)
-        if waiver is not None:
-            waivers_used.append(waiver)
-            satisfied.append(ref)
-        else:
+        environments = list(criterion.required_environments) if criterion is not None else []
+        # F17: each required platform needs its own result; one platform's pass
+        # says nothing about another's.
+        groups = ([(env, [a for a in candidates if environment_matches(env, a.summary.get("environment"))])
+                   for env in environments] if environments else [(None, candidates)])
+        ref_ok = True
+        for environment, group in groups:
+            if not group:
+                ref_ok = False
+                if environment is not None:
+                    missing_environments.append(f"{ref.id}:{environment}")
+                if ref not in missing:
+                    missing.append(ref)
+                continue
+            # The event log orders records; timestamps can tie within a millisecond.
+            latest = max(group, key=lambda a: (a.recorded_seq or 0, a.created_at))
+            used.append(latest.assessment_id)
+            result = latest.assessment_result
+            if result == "pass" or (result == "not_applicable" and latest.limitations):
+                continue
+            waiver_forbidden = criterion is None or criterion.waiver_policy == "forbidden"
+            waiver = None if waiver_forbidden else _applicable_waiver(ref, decisions, now)
+            if waiver is not None:
+                if waiver not in waivers_used:
+                    waivers_used.append(waiver)
+                continue
+            ref_ok = False
             blocking.append(
                 BlockingResult(
                     criterion_ref=ref, assessment_id=latest.assessment_id,
-                    assessment_result=result, waiver_forbidden=waiver_forbidden,
+                    assessment_result=result, waiver_forbidden=waiver_forbidden, environment=environment,
                 )
             )
+        if ref_ok:
+            satisfied.append(ref)
 
     eligible = not missing and not blocking
     if eligible:
@@ -138,7 +156,8 @@ def evaluate_completion(
         reason = "not_eligible"
         parts = []
         if missing:
-            parts.append(f"{len(missing)} criteria have no assessment for this snapshot")
+            parts.append(f"{len(missing)} criteria have no assessment for this snapshot"
+                         + (f" (missing platforms: {', '.join(missing_environments)})" if missing_environments else ""))
         if blocking:
             parts.append(
                 f"{len(blocking)} criteria are assessed "
@@ -154,6 +173,7 @@ def evaluate_completion(
         blocking_results=blocking,
         applicable_waivers=waivers_used,
         used_assessments=used,
+        missing_environments=missing_environments,
         explanation=explanation,
     )
 

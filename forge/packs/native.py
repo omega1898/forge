@@ -45,6 +45,7 @@ from forge.contracts.ids import new_id
 from forge.contracts.paths import check_relative_path
 from forge.execution.collector import collect_outputs
 from forge.packs.python_pack import PackDescriptor
+from forge.platforms import environment_of, where
 from forge.sandbox.base import ExecutionObservation, SandboxSpec
 from forge.tools.registry import ToolDefinition, ToolRegistry, file_digest
 from forge.workspace.snapshot import load_manifest
@@ -432,13 +433,21 @@ class NativeAssessor:
         if suite.entrypoint[:1] != [f"/input/{spec.output}"]:
             raise ForgeError(ErrorCode.INVALID_REQUEST, f"the suite must run /input/{spec.output}")
 
+        capabilities = service.backend.capabilities()
+
         def record(result: str, limitations: list[str], evidence: list[str], summary: dict[str, Any]) -> str:
             return service._send("assessment.record", {
                 "criterion_ref": criterion_ref, "snapshot_id": snapshot_id, "evidence_refs": evidence,
                 "assessment_result": result, "assessor_ref": NATIVE_TOOL_REF, "limitations": limitations,
-                "summary": summary}).result["assessment_id"]
+                "summary": {**summary, "environment": environment_of(capabilities),
+                            "executed_on": where(capabilities)}}).result["assessment_id"]
 
-        capabilities = service.backend.capabilities()
+        if criterion.required_environments:
+            plan = service.platform_plan(criterion, snapshot_id, NATIVE_TOOL_REF)
+            if not plan["run_here"]:
+                return {"assessment_id": plan["not_run_ids"][-1], "result": "not_run",
+                        "not_run_ids": plan["not_run_ids"], "finding_ids": []}
+
         if not capabilities.available:
             assessment_id = record("not_run", [f"isolation backend unavailable: {capabilities.unavailable_reason}"],
                                    [], {})

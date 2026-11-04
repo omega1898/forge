@@ -40,11 +40,17 @@ class BackendCapabilities(StrictModel):
     backend_id: Slug
     available: bool
     unavailable_reason: str | None = None
+    # Where the workload actually executes. A Linux VM or WSL reached from a
+    # Windows or macOS machine executes Linux, and says so here.
     os: Literal["linux", "windows", "macos"]
     arch: str
     capabilities: list[Slug]
     suitable_for_hostile_code: bool
     notes: list[str] = Field(default_factory=list)
+    virtualization: Literal["none", "vm", "wsl", "container", "emulator", "unknown"] = "unknown"
+    # The operating system of the machine the user reaches this backend
+    # through, when it differs from where the workload runs.
+    interface_os: Literal["linux", "windows", "macos"] | None = None
 
 
 class SandboxSpec(StrictModel):

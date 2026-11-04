@@ -31,6 +31,7 @@ from forge.contracts.digests import canonical_json_bytes, digest_json
 from forge.contracts.errors import ErrorCode, ForgeError
 from forge.contracts.ids import new_id
 from forge.contracts.versions import SCHEMA_VERSION
+from forge.platforms import environment_of, execution_platform, native_problem, where
 from forge.sandbox.base import SandboxBackend
 from forge.tools.registry import ToolDefinition
 from forge.workspace.snapshot import load_manifest, materialize
@@ -144,6 +145,29 @@ class AssessmentService:
         )
         return receipt.result["artifact_id"]
 
+    def platform_plan(self, criterion, snapshot_id: str, assessor_ref: str) -> dict[str, Any]:  # noqa: ANN001
+        """F17: decide whether this host may produce evidence for the criterion's platforms.
+
+        Records an explicit `not_run` for every required environment this host
+        cannot execute natively. Returns whether to run here and the
+        environment the run will be recorded under.
+        """
+        caps = self.backend.capabilities()
+        here = environment_of(caps)
+        required = list(criterion.required_environments)
+        unsatisfied = [(env, native_problem(env, caps)) for env in required]
+        unsatisfied = [(env, problem) for env, problem in unsatisfied if problem is not None]
+        not_run_ids = []
+        for env, problem in unsatisfied:
+            receipt = self._send("assessment.record", {
+                "criterion_ref": {"id": criterion.criterion_id, "revision": criterion.revision},
+                "snapshot_id": snapshot_id, "assessment_result": "not_run", "assessor_ref": assessor_ref,
+                "limitations": [problem], "summary": {"environment": env, "executed_on": None}})
+            not_run_ids.append(receipt.result["assessment_id"])
+        run_here = caps.available and (not required or len(unsatisfied) < len(required))
+        return {"run_here": run_here, "environment": here, "not_run_ids": not_run_ids,
+                "unsatisfied": [env for env, _ in unsatisfied]}
+
     # ---------------------------------------------------- black-box criteria
 
     def assess_black_box(self, criterion_id: str, snapshot_id: str, *, repeat: int = 1) -> dict[str, Any]:
@@ -154,6 +178,10 @@ class AssessmentService:
         suite = self.load_suite(criterion.parameters["suite_artifact_id"], criterion.parameters["suite_digest"])
 
         capabilities = self.backend.capabilities()
+        plan = self.platform_plan(criterion, snapshot_id, TOOL_REF) if criterion.required_environments else None
+        if plan is not None and not plan["run_here"]:
+            return {"assessment_id": plan["not_run_ids"][-1] if plan["not_run_ids"] else None,
+                    "result": "not_run", "evidence_id": None, "not_run_ids": plan["not_run_ids"]}
         if not capabilities.available:
             receipt = self._send(
                 "assessment.record",
@@ -190,6 +218,7 @@ class AssessmentService:
                 "evaluator_digest": run.evaluator_digest,
                 "observation_type": "black_box_case_results",
                 "observation": {
+                    "execution_platform": execution_platform(capabilities),
                     "suite_id": run.suite_id,
                     "suite_digest": run.suite_digest,
                     "counts": run.counts,
@@ -209,7 +238,8 @@ class AssessmentService:
                 "assessment_result": run.result,
                 "assessor_ref": TOOL_REF,
                 "limitations": run.limitations,
-                "summary": {"counts": run.counts},
+                "summary": {"counts": run.counts, "environment": environment_of(capabilities),
+                            "executed_on": where(capabilities)},
             },
         )
         return {
@@ -218,6 +248,7 @@ class AssessmentService:
             "evidence_id": evidence_id,
             "report_artifact_id": report_id,
             "run": run,
+            "not_run_ids": plan["not_run_ids"] if plan else [],
         }
 
     def suite_can_fail(self, suite: EvaluatorSuite, known_bad_snapshot_id: str) -> bool:
