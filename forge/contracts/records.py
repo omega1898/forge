@@ -60,6 +60,7 @@ class Project(CommonFields):
     source_roots: list[Slug]
     profile_id: Slug
     last_event_seq: int = Field(ge=0)
+    plan_revision: int = Field(default=0, ge=0)
 
 
 class Requirement(CommonFields):
@@ -100,6 +101,10 @@ class Task(CommonFields):
     workflow_revision: int = Field(ge=1)
     depends_on: list[TaskId]
     updated_at: Timestamp
+    supersedes_task_id: TaskId | None = None
+    superseded_by_task_id: TaskId | None = None
+    # How completion was judged (snapshot, assessments, waivers); None until completed.
+    completion: dict[str, JsonValue] | None = None
 
 
 class Decision(CommonFields):
@@ -178,6 +183,8 @@ class Assessment(CommonFields):
     limitations: list[str]
     summary: dict[str, JsonValue]
     supersedes_assessment_id: AssessmentId | None
+    # Position of the recording event in the log: the authoritative order.
+    recorded_seq: int | None = None
 
 
 class Finding(CommonFields):

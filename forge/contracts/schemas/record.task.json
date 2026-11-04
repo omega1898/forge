@@ -24,6 +24,7 @@
       "title": "Budget",
       "type": "object"
     },
+    "JsonValue": {},
     "RevisionRef": {
       "additionalProperties": false,
       "description": "A reference to a specific revision of a record.\n\nMeaning can change between revisions, so a test assessed against\nrequirement revision 2 must not silently satisfy revision 3.",
@@ -65,6 +66,21 @@
     },
     "budget": {
       "$ref": "#/$defs/Budget"
+    },
+    "completion": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Completion"
     },
     "created_at": {
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
@@ -127,6 +143,32 @@
       ],
       "title": "Status",
       "type": "string"
+    },
+    "superseded_by_task_id": {
+      "anyOf": [
+        {
+          "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Superseded By Task Id"
+    },
+    "supersedes_task_id": {
+      "anyOf": [
+        {
+          "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersedes Task Id"
     },
     "task_id": {
       "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",

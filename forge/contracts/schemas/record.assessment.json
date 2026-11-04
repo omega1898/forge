@@ -87,6 +87,18 @@
       "title": "Record Version",
       "type": "integer"
     },
+    "recorded_seq": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recorded Seq"
+    },
     "snapshot_id": {
       "anyOf": [
         {

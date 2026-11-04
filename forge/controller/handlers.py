@@ -32,14 +32,18 @@ from forge.contracts.commands import (
     EvidenceRecordExecutionParams,
     EvidenceRecordReviewParams,
     FindingRecordParams,
+    PlanApplyParams,
     SuiteAdmitParams,
+    TaskCompleteParams,
     TaskTransitionParams,
     WorkspaceCaptureParams,
 )
 from forge.contracts.errors import ErrorCode, ForgeError
 from forge.contracts.ids import id_prefix, new_id
 from forge.contracts.records import TERMINAL_TASK_STATUSES, Project
+from forge.engine.completion import evaluate_completion
 from forge.engine.graph import find_cycle
+from forge.engine.plans import validate_plan
 from forge.engine.lifecycle import is_allowed
 from forge.record.events import DomainEvent
 from forge.record.store import ProjectStore
@@ -225,11 +229,9 @@ def task_create(ctx: HandlerContext, command: Command) -> Outcome:
         _check_ref(ctx, ref, "requirement")
     for ref in params.criterion_refs:
         _check_ref(ctx, ref, "criterion")
-    if params.input_refs:
-        raise ForgeError(
-            ErrorCode.MISSING_CAPABILITY,
-            "snapshot and artifact inputs are not supported yet (ticket F03)",
-        )
+    for ref in params.input_refs:
+        if id_prefix(ref.id) != "snapshot" or ctx.store.snapshot(ref.id) is None:
+            raise ForgeError(ErrorCode.INVALID_REQUEST, f"input {ref.id} is not an existing snapshot")
     for dependency in params.depends_on:
         if ctx.store.task(dependency) is None:
             raise ForgeError(ErrorCode.INVALID_REQUEST, f"{dependency} does not exist", related_ids=[dependency])
@@ -243,7 +245,7 @@ def task_create(ctx: HandlerContext, command: Command) -> Outcome:
         "status": "queued",
         "requirement_refs": [ref.model_dump() for ref in params.requirement_refs],
         "criterion_refs": [ref.model_dump() for ref in params.criterion_refs],
-        "input_refs": [],
+        "input_refs": [ref.model_dump() for ref in params.input_refs],
         "authority_ref": params.authority_ref,
         "budget": params.budget.model_dump(),
         "workflow_revision": params.workflow_revision,
@@ -317,8 +319,8 @@ def task_transition(ctx: HandlerContext, command: Command) -> Outcome:
         # Completion must come from the completion evaluator checking required
         # assessments and decisions. A command saying "it's done" is not evidence.
         raise ForgeError(
-            ErrorCode.MISSING_CAPABILITY,
-            "tasks complete only through the completion evaluator (tickets F05/F06)",
+            ErrorCode.INVALID_REQUEST,
+            "use task.complete: completion is decided by the completion evaluator from recorded assessments",
             related_ids=[task.task_id],
         )
     if params.to_status == "running":
@@ -707,6 +709,137 @@ def finding_record(ctx: HandlerContext, command: Command) -> Outcome:
     return Outcome(events=[DomainEvent("finding.recorded", {"finding": item})], result={"finding_id": finding_id})
 
 
+# ----------------------------------------------------------- engine (F06) --
+
+
+def plan_apply(ctx: HandlerContext, command: Command) -> Outcome:
+    params: PlanApplyParams = command.params  # type: ignore[assignment]
+    assert ctx.project is not None
+    validated = validate_plan(ctx.store, ctx.project, params, trust_store=ctx.trust_store, now=ctx.now)
+    key_to_id = validated.key_to_id
+    events: list[DomainEvent] = []
+    for task in params.add_tasks:
+        depends_on = [key_to_id.get(ref, ref) for ref in task.depends_on]
+        record = {
+            "task_id": key_to_id[task.key],
+            "task_type": task.task_type,
+            "title": task.title,
+            "status": "queued",
+            "requirement_refs": [ref.model_dump() for ref in task.requirement_refs],
+            "criterion_refs": [ref.model_dump() for ref in task.criterion_refs],
+            "input_refs": [ref.model_dump() for ref in task.input_refs],
+            "authority_ref": task.authority_ref,
+            "budget": task.budget.model_dump(),
+            "workflow_revision": ctx.project.plan_revision + 1,
+            "supersedes_task_id": task.supersedes_task_id,
+        }
+        events.append(DomainEvent("task.created", {"task": record, "depends_on": depends_on}))
+    # Edges between new tasks travel with task.created; edges added to new
+    # tasks from this change's dependency list are applied after creation.
+    versions: dict[str, int] = {}
+    for link in params.add_dependencies:
+        source = key_to_id.get(link.task, link.task)
+        target = key_to_id.get(link.depends_on, link.depends_on)
+        existing = ctx.store.task(source)
+        version = versions.get(source, existing.record_version if existing else 1) + 1
+        versions[source] = version
+        events.append(
+            DomainEvent(
+                "task.dependency_added",
+                {"task_id": source, "depends_on_task_id": target, "record_version": version},
+            )
+        )
+    superseded = []
+    for task in params.add_tasks:
+        if task.supersedes_task_id is None:
+            continue
+        old = ctx.store.task(task.supersedes_task_id)
+        version = versions.get(old.task_id, old.record_version) + 1
+        events.append(
+            DomainEvent(
+                "task.superseded",
+                {"task_id": old.task_id, "superseded_by_task_id": key_to_id[task.key], "record_version": version},
+            )
+        )
+        if old.status not in TERMINAL_TASK_STATUSES:
+            version += 1
+            events.append(
+                DomainEvent(
+                    "task.status_changed",
+                    {"task_id": old.task_id, "from_status": old.status, "to_status": "cancelled",
+                     "reason": f"superseded by {key_to_id[task.key]}", "record_version": version},
+                )
+            )
+        versions[old.task_id] = version
+        superseded.append(old.task_id)
+    plan_revision = ctx.project.plan_revision + 1
+    events.append(
+        DomainEvent(
+            "plan.revised",
+            {
+                "plan_revision": plan_revision,
+                "summary": params.summary,
+                "added_tasks": key_to_id,
+                "added_dependencies": len(params.add_dependencies),
+                "superseded": superseded,
+            },
+        )
+    )
+    return Outcome(events=events, result={"plan_revision": plan_revision, "task_ids": key_to_id})
+
+
+def task_complete(ctx: HandlerContext, command: Command) -> Outcome:
+    params: TaskCompleteParams = command.params  # type: ignore[assignment]
+    task = ctx.store.task(params.task_id)
+    if task is None:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{params.task_id} does not exist", related_ids=[params.task_id])
+    _require_version(command, task.record_version, task.task_id)
+    if task.status != "running":
+        raise ForgeError(
+            ErrorCode.INVALID_REQUEST,
+            f"{task.task_id} is {task.status}; only a running task can complete",
+            related_ids=[task.task_id],
+        )
+    if params.snapshot_id is not None:
+        _require_snapshot(ctx, params.snapshot_id)
+    criteria = {}
+    assessments = []
+    for ref in task.criterion_refs:
+        criterion = ctx.store.criterion(ref.id)
+        if criterion is not None:
+            criteria[ref.id] = criterion
+        assessments.extend(ctx.store.assessments(criterion_id=ref.id, snapshot_id=params.snapshot_id))
+    evaluation = evaluate_completion(
+        task,
+        snapshot_id=params.snapshot_id,
+        criteria=criteria,
+        assessments=assessments,
+        decisions=ctx.store.decisions(),
+        acknowledged_by_trusted_actor=ctx.actor.is_trusted_human or ctx.actor.kind == "system",
+        now=ctx.now,
+    )
+    if not evaluation.eligible:
+        raise ForgeError(
+            ErrorCode.INVALID_REQUEST,
+            f"{task.task_id} is not complete: {evaluation.explanation}",
+            related_ids=[task.task_id],
+            details={"evaluation": evaluation.model_dump(mode="json")},
+        )
+    completion = {**evaluation.model_dump(mode="json"), "requested_reason": params.reason}
+    new_version = task.record_version + 1
+    return Outcome(
+        events=[
+            DomainEvent(
+                "task.completed",
+                {"task_id": task.task_id, "from_status": task.status, "record_version": new_version,
+                 "completion": completion},
+            )
+        ],
+        result={"task_id": task.task_id, "status": "completed", "reason": evaluation.reason,
+                "record_version": new_version},
+    )
+
+
 Preparer = Callable[[PrepareContext, Command], Any]
 
 PREPARERS: dict[str, Preparer] = {
@@ -731,6 +864,8 @@ HANDLERS: dict[str, Handler] = {
     "evidence.record_review": evidence_record_review,
     "assessment.record": assessment_record,
     "finding.record": finding_record,
+    "plan.apply": plan_apply,
+    "task.complete": task_complete,
 }
 
 # Execution hosts report observations; they do not edit plans or decide.

@@ -18,8 +18,9 @@ Blueprint, design baseline 0.1 (4 November 2026)*.
 | F03 | Artifact store, workspace snapshots, approved source roots | **Done** |
 | F04 | Four-layer authorization; Linux namespace sandbox with cgroup limits; output collector; Podman/VM backends report unavailable | **Done** (Linux backend is for trusted code only; see below) |
 | F05 | Protected black-box evaluator; evidence, assessments, findings; D02 analyzer rules and verdict; D03 determinism and suite-strength probes | **Done** |
-| F04–F24 | Isolation, evaluation, engine, jobs, API/CLI, model gateway, packs, editor, ... | Not started |
-| D02–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
+| F06 | Plan deltas validated as a unit; completion evaluator over assessments, waivers and decisions; supersede links | **Done** |
+| F07–F24 | Jobs, API/CLI, model gateway, retrieval, packs, editor, ... | In progress |
+| D04–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
 
 Acceptance results checked by the test suite (`tests/`):
 

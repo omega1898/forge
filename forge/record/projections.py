@@ -29,7 +29,7 @@ Projector = Callable[[sqlite3.Connection, EventRecord], None]
 
 # Order matters when clearing: children before parents (foreign keys).
 PROJECTION_TABLES = (
-    "findings", "assessments", "evidence",
+    "plan_revisions", "findings", "assessments", "evidence",
     "task_dependencies", "decisions", "tasks", "snapshots", "artifacts", "records", "projects",
 )
 
@@ -90,8 +90,8 @@ def _task_created(conn: sqlite3.Connection, event: EventRecord) -> None:
     conn.execute(
         "INSERT INTO tasks (task_id, project_id, task_type, title, status, requirement_refs_json,"
         " criterion_refs_json, input_refs_json, authority_ref, budget_json, workflow_revision,"
-        " created_at, created_by, updated_at, record_version)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+        " created_at, created_by, updated_at, record_version, supersedes_task_id)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
         (
             task["task_id"],
             event.project_id,
@@ -107,6 +107,7 @@ def _task_created(conn: sqlite3.Connection, event: EventRecord) -> None:
             event.occurred_at,
             event.actor_id,
             event.occurred_at,
+            task.get("supersedes_task_id"),
         ),
     )
     for dependency in event.payload["depends_on"]:
@@ -143,6 +144,42 @@ def _task_status_changed(conn: sqlite3.Connection, event: EventRecord) -> None:
             payload["record_version"] - 1,
             payload["from_status"],
         ),
+    )
+    _expect_one(cursor, event, payload["task_id"])
+
+
+def _plan_revised(conn: sqlite3.Connection, event: EventRecord) -> None:
+    payload = event.payload
+    conn.execute(
+        "INSERT INTO plan_revisions (plan_revision, project_id, summary_json, created_at, created_by)"
+        " VALUES (?, ?, ?, ?, ?)",
+        (payload["plan_revision"], event.project_id, _json(payload), event.occurred_at, event.actor_id),
+    )
+    cursor = conn.execute(
+        "UPDATE projects SET plan_revision = ? WHERE project_id = ? AND plan_revision = ?",
+        (payload["plan_revision"], event.project_id, payload["plan_revision"] - 1),
+    )
+    _expect_one(cursor, event, event.project_id)
+
+
+def _task_superseded(conn: sqlite3.Connection, event: EventRecord) -> None:
+    payload = event.payload
+    cursor = conn.execute(
+        "UPDATE tasks SET superseded_by_task_id = ?, updated_at = ?, record_version = ?"
+        " WHERE task_id = ? AND record_version = ? AND superseded_by_task_id IS NULL",
+        (payload["superseded_by_task_id"], event.occurred_at, payload["record_version"],
+         payload["task_id"], payload["record_version"] - 1),
+    )
+    _expect_one(cursor, event, payload["task_id"])
+
+
+def _task_completed(conn: sqlite3.Connection, event: EventRecord) -> None:
+    payload = event.payload
+    cursor = conn.execute(
+        "UPDATE tasks SET status = 'completed', completion_json = ?, updated_at = ?, record_version = ?"
+        " WHERE task_id = ? AND record_version = ? AND status = ?",
+        (_json(payload["completion"]), event.occurred_at, payload["record_version"], payload["task_id"],
+         payload["record_version"] - 1, payload["from_status"]),
     )
     _expect_one(cursor, event, payload["task_id"])
 
@@ -276,13 +313,14 @@ def _assessment_recorded(conn: sqlite3.Connection, event: EventRecord) -> None:
     conn.execute(
         "INSERT INTO assessments (assessment_id, project_id, criterion_id, criterion_revision,"
         " snapshot_id, evidence_refs_json, assessment_result, assessor_ref, limitations_json,"
-        " summary_json, supersedes_assessment_id, created_at, created_by, record_version)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+        " summary_json, supersedes_assessment_id, created_at, created_by, record_version, recorded_seq)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
         (
             item["assessment_id"], event.project_id, item["criterion_ref"]["id"],
             item["criterion_ref"]["revision"], item["snapshot_id"], _json(item["evidence_refs"]),
             item["assessment_result"], item["assessor_ref"], _json(item["limitations"]),
             _json(item["summary"]), item["supersedes_assessment_id"], event.occurred_at, event.actor_id,
+            event.event_seq,
         ),
     )
 
@@ -316,6 +354,9 @@ PROJECTORS: dict[tuple[str, int], Projector] = {
     ("evidence.recorded", 1): _evidence_recorded,
     ("assessment.recorded", 1): _assessment_recorded,
     ("finding.recorded", 1): _finding_recorded,
+    ("plan.revised", 1): _plan_revised,
+    ("task.superseded", 1): _task_superseded,
+    ("task.completed", 1): _task_completed,
 }
 
 

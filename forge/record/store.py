@@ -64,6 +64,7 @@ class RecordReader:
             created_by=row["created_by"],
             record_version=row["record_version"],
             last_event_seq=self.last_event_seq(),
+            plan_revision=row["plan_revision"],
         )
 
     def last_event_seq(self) -> int:
@@ -142,6 +143,9 @@ class RecordReader:
             workflow_revision=row["workflow_revision"],
             depends_on=self.dependencies(row["task_id"]),
             updated_at=row["updated_at"],
+            supersedes_task_id=row["supersedes_task_id"],
+            superseded_by_task_id=row["superseded_by_task_id"],
+            completion=None if row["completion_json"] is None else json.loads(row["completion_json"]),
         )
 
     def decision(self, decision_id: str) -> Decision | None:
@@ -208,7 +212,7 @@ class RecordReader:
         if snapshot_id is not None:
             sql += " AND snapshot_id = ?"
             values.append(snapshot_id)
-        sql += " ORDER BY created_at, assessment_id"
+        sql += " ORDER BY recorded_seq, assessment_id"
         return [_assessment_from_row(row) for row in self.conn.execute(sql, values)]
 
     def findings(self, *, snapshot_id: str | None = None) -> list[Finding]:
@@ -219,6 +223,14 @@ class RecordReader:
             values.append(snapshot_id)
         sql += " ORDER BY created_at, finding_id"
         return [_finding_from_row(row) for row in self.conn.execute(sql, values)]
+
+    def plan_revisions(self) -> list[dict[str, Any]]:
+        rows = self.conn.execute("SELECT * FROM plan_revisions ORDER BY plan_revision")
+        return [
+            {"plan_revision": row["plan_revision"], "summary": json.loads(row["summary_json"]),
+             "created_at": row["created_at"], "created_by": row["created_by"]}
+            for row in rows
+        ]
 
     def events(self, *, after_seq: int = 0, limit: int = DEFAULT_PAGE) -> list[EventRecord]:
         limit = max(1, min(int(limit), MAX_PAGE))
@@ -426,6 +438,7 @@ def _assessment_from_row(row: sqlite3.Row) -> Assessment:
         limitations=json.loads(row["limitations_json"]),
         summary=json.loads(row["summary_json"]),
         supersedes_assessment_id=row["supersedes_assessment_id"],
+        recorded_seq=row["recorded_seq"],
     )
 
 

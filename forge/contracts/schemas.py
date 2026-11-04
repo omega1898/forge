@@ -42,6 +42,8 @@ SCHEMA_MODELS = {
     "params.evidence.record_review": commands.EvidenceRecordReviewParams,
     "params.assessment.record": commands.AssessmentRecordParams,
     "params.finding.record": commands.FindingRecordParams,
+    "params.plan.apply": commands.PlanApplyParams,
+    "params.task.complete": commands.TaskCompleteParams,
     "record.project": records.Project,
     "record.requirement": records.Requirement,
     "record.criterion": records.Criterion,

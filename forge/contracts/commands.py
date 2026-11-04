@@ -53,12 +53,14 @@ Method = Literal[
     "evidence.record_review",
     "assessment.record",
     "finding.record",
+    "plan.apply",
+    "task.complete",
 ]
 
 # Methods that change an existing record and therefore must say which version
 # of that record the client last saw.
 VERSIONED_METHODS: frozenset[str] = frozenset(
-    {"task.add_dependency", "task.transition", "decision.record"}
+    {"task.add_dependency", "task.transition", "decision.record", "task.complete"}
 )
 
 MAX_PARAMETERS_BYTES = 16 * 1024
@@ -263,6 +265,45 @@ class FindingRecordParams(StrictModel):
         return None if value is None else check_relative_path(value)
 
 
+class PlannedTask(StrictModel):
+    key: Slug  # local name, used by other entries in the same plan change
+    task_type: TaskType
+    title: Text(300)
+    requirement_refs: list[RevisionRef] = Field(default_factory=list, max_length=64)
+    criterion_refs: list[RevisionRef] = Field(default_factory=list, max_length=64)
+    input_refs: list[RevisionRef] = Field(default_factory=list, max_length=64)
+    depends_on: list[str] = Field(default_factory=list, max_length=64)
+    authority_ref: GrantId | None = None
+    budget: Budget
+    supersedes_task_id: TaskId | None = None
+
+
+class PlanDependency(StrictModel):
+    task: str  # a key from this change or an existing task ID
+    depends_on: str
+
+
+class PlanApplyParams(StrictModel):
+    base_plan_revision: int = Field(ge=0)
+    summary: Text(1000)
+    add_tasks: list[PlannedTask] = Field(default_factory=list, max_length=200)
+    add_dependencies: list[PlanDependency] = Field(default_factory=list, max_length=500)
+
+    @model_validator(mode="after")
+    def _not_empty(self) -> PlanApplyParams:
+        if not self.add_tasks and not self.add_dependencies:
+            raise ValueError("a plan change must add tasks or dependencies")
+        return self
+
+
+class TaskCompleteParams(StrictModel):
+    task_id: TaskId
+    # The snapshot whose assessments establish completion (None for tasks
+    # judged without a snapshot, such as decide tasks).
+    snapshot_id: IdOf("snapshot") | None = None
+    reason: Text(2000)
+
+
 PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "project.create": ProjectCreateParams,
     "requirement.create": RequirementCreateParams,
@@ -279,6 +320,8 @@ PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "evidence.record_review": EvidenceRecordReviewParams,
     "assessment.record": AssessmentRecordParams,
     "finding.record": FindingRecordParams,
+    "plan.apply": PlanApplyParams,
+    "task.complete": TaskCompleteParams,
 }
 
 

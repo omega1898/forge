@@ -55,7 +55,9 @@
         "evidence.record_execution",
         "evidence.record_review",
         "assessment.record",
-        "finding.record"
+        "finding.record",
+        "plan.apply",
+        "task.complete"
       ],
       "title": "Method",
       "type": "string"
