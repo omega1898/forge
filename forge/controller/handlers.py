@@ -32,8 +32,14 @@ from forge.contracts.commands import (
     EvidenceRecordExecutionParams,
     EvidenceRecordReviewParams,
     FindingRecordParams,
+    JobCreateParams,
+    JobObserveParams,
+    JobReceiptParams,
+    JobReconciliationParams,
+    JobRetryParams,
     PlanApplyParams,
     SuiteAdmitParams,
+    TaskCancelParams,
     TaskCompleteParams,
     TaskTransitionParams,
     WorkspaceCaptureParams,
@@ -840,6 +846,213 @@ def task_complete(ctx: HandlerContext, command: Command) -> Outcome:
     )
 
 
+# ------------------------------------------------------------- jobs (F07) --
+
+
+def _parse_spec(raw: dict[str, Any], digest: str):  # noqa: ANN202 - JobSpec
+    from forge.contracts.jobs import JobSpec
+
+    try:
+        spec = JobSpec.model_validate(raw)
+    except ValueError as error:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"invalid job spec: {str(error)[:300]}") from None
+    if spec.digest() != digest:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, "job_digest does not match the job spec")
+    return spec
+
+
+def _check_job_inputs(ctx: HandlerContext, spec, task) -> None:  # noqa: ANN001
+    assert ctx.project is not None
+    if spec.project_id != ctx.project.project_id or spec.controller_id != ctx.controller_id:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, "job spec names another project or controller")
+    if task.task_type != "execute":
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{task.task_id} is a {task.task_type} task and runs without jobs")
+    if not any(s.manifest_digest == spec.snapshot_digest for s in ctx.store.snapshots()):
+        raise ForgeError(ErrorCode.INVALID_REQUEST, "job snapshot_digest does not name a recorded snapshot")
+    if task.authority_ref is not None and task.authority_ref not in spec.grant_ids:
+        raise ForgeError(ErrorCode.PERMISSION_DENIED, f"job must run under the task's grant {task.authority_ref}")
+    # Authority is rechecked at the moment work is admitted: a grant revoked
+    # while the job waited in a queue stops it here (EX-T02).
+    for grant_id in spec.grant_ids:
+        _require_grant(ctx, grant_id)
+
+
+def _job_record(spec, digest: str) -> dict[str, Any]:  # noqa: ANN001
+    return {
+        "job_id": spec.job_id,
+        "attempt_number": spec.attempt_number,
+        "task_id": spec.task_id,
+        "host_id": spec.host_id,
+        "lease_epoch": spec.lease_epoch,
+        "spec": spec.model_dump(mode="json"),
+        "job_digest": digest,
+        "effect_class": spec.effect_class,
+        "retry_class": spec.retry_class,
+    }
+
+
+def job_create(ctx: HandlerContext, command: Command) -> Outcome:
+    params: JobCreateParams = command.params  # type: ignore[assignment]
+    spec = _parse_spec(params.spec, params.job_digest)
+    if spec.attempt_number != 1 or spec.lease_epoch != 1:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, "new jobs start at attempt 1, epoch 1; use job.retry")
+    task = ctx.store.task(spec.task_id)
+    if task is None:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{spec.task_id} does not exist")
+    _check_job_inputs(ctx, spec, task)
+    if task.status != "queued":
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{task.task_id} is {task.status}; a job starts a queued task")
+    unfinished = [d for d in task.depends_on if (t := ctx.store.task(d)) is None or t.status != "completed"]
+    if unfinished:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{task.task_id} is not ready", related_ids=unfinished)
+    if ctx.store.job(spec.job_id) is not None:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{spec.job_id} already exists")
+    return Outcome(
+        events=[
+            DomainEvent("job.created", {"job": _job_record(spec, params.job_digest), "outbox_id": new_id("command")}),
+            DomainEvent(
+                "task.status_changed",
+                {"task_id": task.task_id, "from_status": "queued", "to_status": "running",
+                 "reason": f"job {spec.job_id} admitted", "record_version": task.record_version + 1},
+            ),
+        ],
+        result={"job_id": spec.job_id, "attempt_number": 1, "lease_epoch": 1},
+    )
+
+
+def _fenced_job(ctx: HandlerContext, job_id: str, attempt: int, epoch: int):  # noqa: ANN202 - Job
+    job = ctx.store.job(job_id, attempt)
+    latest = ctx.store.job(job_id)
+    if job is None or latest is None:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{job_id} attempt {attempt} does not exist")
+    if latest.attempt_number != attempt or job.lease_epoch != epoch:
+        raise ForgeError(
+            ErrorCode.STALE_VERSION,
+            f"fenced: {job_id} is at attempt {latest.attempt_number} epoch {latest.lease_epoch}; "
+            f"a report for attempt {attempt} epoch {epoch} cannot change it",
+            related_ids=[job_id],
+            details={"reason": "fenced"},
+        )
+    return job
+
+
+def job_receipt(ctx: HandlerContext, command: Command) -> Outcome:
+    params: JobReceiptParams = command.params  # type: ignore[assignment]
+    job = _fenced_job(ctx, params.job_id, params.attempt_number, params.lease_epoch)
+    outbox = ctx.store.conn.execute(
+        "SELECT outbox_id FROM outbox WHERE job_id = ? AND attempt_number = ? AND kind = ? AND state = 'pending'",
+        (job.job_id, job.attempt_number, params.kind),
+    ).fetchone()
+    update: dict[str, Any] = {"job_id": job.job_id, "attempt_number": job.attempt_number}
+    if outbox is not None:
+        update["outbox_acknowledged"] = outbox[0]
+    if params.kind == "submit" and job.execution_status == "queued":
+        if params.accepted:
+            update["execution_status"] = "leased"
+        elif job.cancel_requested_at is not None:
+            update["execution_status"] = "cancelled"
+            update["outcome"] = {"cancelled_before_dispatch": True}
+        else:
+            update["execution_status"] = "failed"
+            update["outcome"] = {"rejected_by_host": params.reason}
+    return Outcome(events=[DomainEvent("job.updated", update)], result={"status": update.get("execution_status", job.execution_status)})
+
+
+def job_observe(ctx: HandlerContext, command: Command) -> Outcome:
+    from forge.contracts.jobs import TERMINAL_JOB_STATUSES
+
+    params: JobObserveParams = command.params  # type: ignore[assignment]
+    job = _fenced_job(ctx, params.job_id, params.attempt_number, params.lease_epoch)
+    if params.sequence <= job.host_event_seq:
+        return Outcome(events=[], result={"ignored": "duplicate"})
+    update: dict[str, Any] = {"job_id": job.job_id, "attempt_number": job.attempt_number,
+                              "host_event_seq": params.sequence}
+    if job.execution_status not in TERMINAL_JOB_STATUSES:
+        update["execution_status"] = params.state
+    if params.kind in ("finished", "cancel_acknowledged", "lost"):
+        update["outcome"] = params.payload
+    return Outcome(events=[DomainEvent("job.updated", update)], result={"status": update.get("execution_status", job.execution_status)})
+
+
+def job_retry(ctx: HandlerContext, command: Command) -> Outcome:
+    params: JobRetryParams = command.params  # type: ignore[assignment]
+    spec = _parse_spec(params.spec, params.job_digest)
+    previous = ctx.store.job(spec.job_id, params.previous_attempt)
+    latest = ctx.store.job(spec.job_id)
+    if previous is None or latest is None or latest.attempt_number != params.previous_attempt:
+        raise ForgeError(ErrorCode.STALE_VERSION, "retry must follow the latest attempt")
+    if previous.execution_status not in ("lost", "failed"):
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"attempt {previous.attempt_number} is {previous.execution_status}")
+    if spec.attempt_number != previous.attempt_number + 1 or spec.lease_epoch != previous.lease_epoch + 1:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, "a retry needs the next attempt number and a new lease epoch")
+    if previous.retry_class == "never_automatic":
+        raise ForgeError(ErrorCode.PERMISSION_DENIED, "this job's effects are never retried automatically")
+    if previous.retry_class == "reconcile_before_retry":
+        state = (previous.outcome or {}).get("target_state")
+        if state not in ("absent", "not_attempted"):
+            raise ForgeError(
+                ErrorCode.PERMISSION_DENIED,
+                "the external effect is not confirmed absent; reconcile before any retry",
+            )
+    task = ctx.store.task(spec.task_id)
+    assert task is not None
+    if spec.attempt_number > task.budget.max_attempts:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{task.task_id} has used its {task.budget.max_attempts} attempt(s)")
+    _check_job_inputs(ctx, spec, task)
+    return Outcome(
+        events=[DomainEvent("job.created", {"job": _job_record(spec, params.job_digest), "outbox_id": new_id("command")})],
+        result={"job_id": spec.job_id, "attempt_number": spec.attempt_number, "lease_epoch": spec.lease_epoch},
+    )
+
+
+def job_reconciliation_required(ctx: HandlerContext, command: Command) -> Outcome:
+    params: JobReconciliationParams = command.params  # type: ignore[assignment]
+    job = ctx.store.job(params.job_id, params.attempt_number)
+    if job is None:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{params.job_id} attempt {params.attempt_number} does not exist")
+    task = ctx.store.task(job.task_id)
+    assert task is not None
+    events = [DomainEvent("job.updated", {"job_id": job.job_id, "attempt_number": job.attempt_number,
+                                          "execution_status": "lost", "reconciliation": "required"})]
+    if task.status == "running":
+        events.append(DomainEvent(
+            "task.status_changed",
+            {"task_id": task.task_id, "from_status": "running", "to_status": "blocked",
+             "reason": f"reconciliation required: {params.reason}", "record_version": task.record_version + 1},
+        ))
+    return Outcome(events=events, result={"task_id": task.task_id, "reconciliation": "required"})
+
+
+def task_cancel(ctx: HandlerContext, command: Command) -> Outcome:
+    """Request cancellation. Running work stops through the host, then is observed."""
+    params: TaskCancelParams = command.params  # type: ignore[assignment]
+    task = ctx.store.task(params.task_id)
+    if task is None:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{params.task_id} does not exist")
+    if task.status in TERMINAL_TASK_STATUSES:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{task.task_id} is already {task.status}")
+    active = ctx.store.jobs(task_id=task.task_id, active_only=True)
+    if not active:
+        return Outcome(
+            events=[DomainEvent(
+                "task.status_changed",
+                {"task_id": task.task_id, "from_status": task.status, "to_status": "cancelled",
+                 "reason": params.reason, "record_version": task.record_version + 1},
+            )],
+            result={"task_id": task.task_id, "status": "cancelled"},
+        )
+    events = [
+        DomainEvent("job.updated", {"job_id": job.job_id, "attempt_number": job.attempt_number,
+                                    "cancel_requested": True, "outbox_cancel": new_id("command")})
+        for job in active if job.cancel_requested_at is None
+    ]
+    return Outcome(
+        events=events,
+        result={"task_id": task.task_id, "status": "cancellation_pending",
+                "jobs": [job.job_id for job in active]},
+    )
+
+
 Preparer = Callable[[PrepareContext, Command], Any]
 
 PREPARERS: dict[str, Preparer] = {
@@ -866,6 +1079,12 @@ HANDLERS: dict[str, Handler] = {
     "finding.record": finding_record,
     "plan.apply": plan_apply,
     "task.complete": task_complete,
+    "job.create": job_create,
+    "job.receipt": job_receipt,
+    "job.observe": job_observe,
+    "job.retry": job_retry,
+    "job.reconciliation_required": job_reconciliation_required,
+    "task.cancel": task_cancel,
 }
 
 # Execution hosts report observations; they do not edit plans or decide.
@@ -874,7 +1093,10 @@ ALLOWED_ACTOR_KINDS: dict[str, frozenset[str]] = {
 }
 # Only FORGE's own trusted services record what was measured. A client or a
 # model cannot write "pass" into the record by calling a method.
-for _method in ("artifact.register", "evidence.record_execution", "assessment.record", "finding.record"):
+for _method in (
+    "artifact.register", "evidence.record_execution", "assessment.record", "finding.record",
+    "job.create", "job.receipt", "job.observe", "job.retry", "job.reconciliation_required",
+):
     ALLOWED_ACTOR_KINDS[_method] = frozenset({"system"})
 # Generated tests stay proposals until a person (or FORGE itself) admits them.
 ALLOWED_ACTOR_KINDS["suite.admit"] = frozenset({"human", "system"})

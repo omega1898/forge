@@ -208,6 +208,10 @@ class LinuxNamespaceBackend:
         os.close(status_write)
         with self._lock:
             self._running[spec.job_key] = (process, group)
+            cancelled_early = spec.job_key in self._cancelled
+        if cancelled_early:
+            # A cancel arrived before the process was registered: honor it now.
+            self._kill(process, group)
         out = _Pipe(process.stdout, limits.stdout_bytes)
         err = _Pipe(process.stderr, limits.stderr_bytes)
         out.start()
@@ -281,12 +285,12 @@ class LinuxNamespaceBackend:
             group.kill_all()
 
     def cancel(self, job_key: str) -> bool:
+        """Cancel a running job, or one about to start (it is killed on launch)."""
         with self._lock:
-            entry = self._running.get(job_key)
-            if entry is None:
-                return False
             self._cancelled.add(job_key)
-        self._kill(*entry)
+            entry = self._running.get(job_key)
+        if entry is not None:
+            self._kill(*entry)
         return True
 
     def destroy(self, work_dir: Path) -> None:

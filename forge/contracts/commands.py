@@ -55,6 +55,12 @@ Method = Literal[
     "finding.record",
     "plan.apply",
     "task.complete",
+    "job.create",
+    "job.receipt",
+    "job.observe",
+    "job.retry",
+    "job.reconciliation_required",
+    "task.cancel",
 ]
 
 # Methods that change an existing record and therefore must say which version
@@ -304,6 +310,50 @@ class TaskCompleteParams(StrictModel):
     reason: Text(2000)
 
 
+class JobCreateParams(StrictModel):
+    spec: dict[str, JsonValue]
+    job_digest: Digest
+
+
+class JobReceiptParams(StrictModel):
+    kind: Literal["submit", "cancel"] = "submit"
+    job_id: IdOf("job")
+    attempt_number: int = Field(ge=1)
+    lease_epoch: int = Field(ge=1)
+    accepted: bool
+    reason: str | None = None
+
+
+class JobObserveParams(StrictModel):
+    """One host event, relayed by the dispatcher. Fenced by attempt and epoch."""
+
+    job_id: IdOf("job")
+    attempt_number: int = Field(ge=1)
+    lease_epoch: int = Field(ge=1)
+    sequence: int = Field(ge=1)
+    kind: Literal["accepted", "started", "progress", "finished", "cancel_acknowledged", "lost"]
+    state: Literal["queued", "leased", "running", "succeeded", "failed", "cancelled", "lost"]
+    payload: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class JobRetryParams(StrictModel):
+    previous_attempt: int = Field(ge=1)
+    spec: dict[str, JsonValue]
+    job_digest: Digest
+    reason: Text(1000)
+
+
+class JobReconciliationParams(StrictModel):
+    job_id: IdOf("job")
+    attempt_number: int = Field(ge=1)
+    reason: Text(1000)
+
+
+class TaskCancelParams(StrictModel):
+    task_id: TaskId
+    reason: Text(2000)
+
+
 PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "project.create": ProjectCreateParams,
     "requirement.create": RequirementCreateParams,
@@ -322,6 +372,12 @@ PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "finding.record": FindingRecordParams,
     "plan.apply": PlanApplyParams,
     "task.complete": TaskCompleteParams,
+    "job.create": JobCreateParams,
+    "job.receipt": JobReceiptParams,
+    "job.observe": JobObserveParams,
+    "job.retry": JobRetryParams,
+    "job.reconciliation_required": JobReconciliationParams,
+    "task.cancel": TaskCancelParams,
 }
 
 

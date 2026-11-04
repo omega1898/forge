@@ -29,7 +29,7 @@ Projector = Callable[[sqlite3.Connection, EventRecord], None]
 
 # Order matters when clearing: children before parents (foreign keys).
 PROJECTION_TABLES = (
-    "plan_revisions", "findings", "assessments", "evidence",
+    "outbox", "jobs", "plan_revisions", "findings", "assessments", "evidence",
     "task_dependencies", "decisions", "tasks", "snapshots", "artifacts", "records", "projects",
 )
 
@@ -339,6 +339,57 @@ def _finding_recorded(conn: sqlite3.Connection, event: EventRecord) -> None:
     )
 
 
+def _job_created(conn: sqlite3.Connection, event: EventRecord) -> None:
+    job = event.payload["job"]
+    conn.execute(
+        "INSERT INTO jobs (job_id, attempt_number, project_id, task_id, host_id, lease_epoch, spec_json,"
+        " job_digest, effect_class, retry_class, execution_status, created_at, created_by, updated_at,"
+        " record_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, 1)",
+        (job["job_id"], job["attempt_number"], event.project_id, job["task_id"], job["host_id"],
+         job["lease_epoch"], _json(job["spec"]), job["job_digest"], job["effect_class"], job["retry_class"],
+         event.occurred_at, event.actor_id, event.occurred_at),
+    )
+    conn.execute(
+        "INSERT INTO outbox (outbox_id, job_id, attempt_number, lease_epoch, kind, state, created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, 'submit', 'pending', ?, ?)",
+        (event.payload["outbox_id"], job["job_id"], job["attempt_number"], job["lease_epoch"],
+         event.occurred_at, event.occurred_at),
+    )
+
+
+def _job_updated(conn: sqlite3.Connection, event: EventRecord) -> None:
+    payload = event.payload
+    sets, values = ["updated_at = ?", "record_version = record_version + 1"], [event.occurred_at]
+    for column in ("execution_status", "host_event_seq", "reconciliation"):
+        if column in payload:
+            sets.append(f"{column} = ?")
+            values.append(payload[column])
+    if "outcome" in payload:
+        sets.append("outcome_json = ?")
+        values.append(_json(payload["outcome"]))
+    if payload.get("cancel_requested"):
+        sets.append("cancel_requested_at = ?")
+        values.append(event.occurred_at)
+    cursor = conn.execute(
+        f"UPDATE jobs SET {', '.join(sets)} WHERE job_id = ? AND attempt_number = ?",  # noqa: S608 - fixed columns
+        (*values, payload["job_id"], payload["attempt_number"]),
+    )
+    _expect_one(cursor, event, payload["job_id"])
+    if payload.get("outbox_acknowledged"):
+        conn.execute(
+            "UPDATE outbox SET state = 'acknowledged', updated_at = ? WHERE outbox_id = ?",
+            (event.occurred_at, payload["outbox_acknowledged"]),
+        )
+    if payload.get("outbox_cancel"):
+        conn.execute(
+            "INSERT INTO outbox (outbox_id, job_id, attempt_number, lease_epoch, kind, state, created_at,"
+            " updated_at) SELECT ?, job_id, attempt_number, lease_epoch, 'cancel', 'pending', ?, ?"
+            " FROM jobs WHERE job_id = ? AND attempt_number = ?",
+            (payload["outbox_cancel"], event.occurred_at, event.occurred_at, payload["job_id"],
+             payload["attempt_number"]),
+        )
+
+
 PROJECTORS: dict[tuple[str, int], Projector] = {
     ("project.created", 1): _project_created,
     ("requirement.created", 1): _record_created("requirement"),
@@ -357,6 +408,8 @@ PROJECTORS: dict[tuple[str, int], Projector] = {
     ("plan.revised", 1): _plan_revised,
     ("task.superseded", 1): _task_superseded,
     ("task.completed", 1): _task_completed,
+    ("job.created", 1): _job_created,
+    ("job.updated", 1): _job_updated,
 }
 
 

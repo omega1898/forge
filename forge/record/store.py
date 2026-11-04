@@ -25,6 +25,7 @@ from forge.contracts.records import (
     Assessment,
     Evidence,
     Finding,
+    Job,
     Criterion,
     Decision,
     EventRecord,
@@ -223,6 +224,32 @@ class RecordReader:
             values.append(snapshot_id)
         sql += " ORDER BY created_at, finding_id"
         return [_finding_from_row(row) for row in self.conn.execute(sql, values)]
+
+    def job(self, job_id: str, attempt_number: int | None = None) -> Job | None:
+        if attempt_number is None:
+            row = self.conn.execute(
+                "SELECT * FROM jobs WHERE job_id = ? ORDER BY attempt_number DESC LIMIT 1", (job_id,)
+            ).fetchone()
+        else:
+            row = self.conn.execute(
+                "SELECT * FROM jobs WHERE job_id = ? AND attempt_number = ?", (job_id, attempt_number)
+            ).fetchone()
+        return None if row is None else _job_from_row(row)
+
+    def jobs(self, *, task_id: str | None = None, active_only: bool = False) -> list[Job]:
+        sql = "SELECT * FROM jobs WHERE 1 = 1"
+        values: list[Any] = []
+        if task_id is not None:
+            sql += " AND task_id = ?"
+            values.append(task_id)
+        if active_only:
+            sql += " AND execution_status IN ('queued', 'leased', 'running')"
+        sql += " ORDER BY created_at, job_id, attempt_number"
+        return [_job_from_row(row) for row in self.conn.execute(sql, values)]
+
+    def pending_outbox(self) -> list[dict[str, Any]]:
+        rows = self.conn.execute("SELECT * FROM outbox WHERE state = 'pending' ORDER BY created_at, outbox_id")
+        return [dict(row) for row in rows]
 
     def plan_revisions(self) -> list[dict[str, Any]]:
         rows = self.conn.execute("SELECT * FROM plan_revisions ORDER BY plan_revision")
@@ -456,6 +483,29 @@ def _finding_from_row(row: sqlite3.Row) -> Finding:
         fingerprint=row["fingerprint"],
         snapshot_id=row["snapshot_id"],
         evidence_refs=json.loads(row["evidence_refs_json"]),
+    )
+
+
+def _job_from_row(row: sqlite3.Row) -> Job:
+    return Job(
+        job_id=row["job_id"],
+        attempt_number=row["attempt_number"],
+        project_id=row["project_id"],
+        task_id=row["task_id"],
+        host_id=row["host_id"],
+        lease_epoch=row["lease_epoch"],
+        spec=json.loads(row["spec_json"]),
+        job_digest=row["job_digest"],
+        effect_class=row["effect_class"],
+        retry_class=row["retry_class"],
+        execution_status=row["execution_status"],
+        host_event_seq=row["host_event_seq"],
+        cancel_requested_at=row["cancel_requested_at"],
+        reconciliation=row["reconciliation"],
+        outcome=None if row["outcome_json"] is None else json.loads(row["outcome_json"]),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        record_version=row["record_version"],
     )
 
 

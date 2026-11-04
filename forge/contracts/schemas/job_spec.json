@@ -1,0 +1,278 @@
+{
+  "$defs": {
+    "JsonValue": {},
+    "OutputContract": {
+      "additionalProperties": false,
+      "properties": {
+        "max_bytes": {
+          "default": 67108864,
+          "minimum": 0,
+          "title": "Max Bytes",
+          "type": "integer"
+        },
+        "max_files": {
+          "default": 1000,
+          "minimum": 0,
+          "title": "Max Files",
+          "type": "integer"
+        }
+      },
+      "title": "OutputContract",
+      "type": "object"
+    },
+    "ResourceLimits": {
+      "additionalProperties": false,
+      "description": "Upper bounds for one job. Durations in milliseconds, sizes in bytes.",
+      "properties": {
+        "cpu_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Cpu Seconds",
+          "type": "integer"
+        },
+        "max_processes": {
+          "maximum": 4096,
+          "minimum": 1,
+          "title": "Max Processes",
+          "type": "integer"
+        },
+        "memory_bytes": {
+          "minimum": 16777216,
+          "title": "Memory Bytes",
+          "type": "integer"
+        },
+        "open_files": {
+          "default": 256,
+          "maximum": 65536,
+          "minimum": 16,
+          "title": "Open Files",
+          "type": "integer"
+        },
+        "output_bytes": {
+          "minimum": 0,
+          "title": "Output Bytes",
+          "type": "integer"
+        },
+        "output_files": {
+          "maximum": 100000,
+          "minimum": 0,
+          "title": "Output Files",
+          "type": "integer"
+        },
+        "scratch_bytes": {
+          "minimum": 1048576,
+          "title": "Scratch Bytes",
+          "type": "integer"
+        },
+        "stderr_bytes": {
+          "minimum": 0,
+          "title": "Stderr Bytes",
+          "type": "integer"
+        },
+        "stdout_bytes": {
+          "minimum": 0,
+          "title": "Stdout Bytes",
+          "type": "integer"
+        },
+        "wall_ms": {
+          "maximum": 86400000,
+          "minimum": 1,
+          "title": "Wall Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "wall_ms",
+        "cpu_seconds",
+        "memory_bytes",
+        "max_processes",
+        "scratch_bytes",
+        "output_bytes",
+        "output_files",
+        "stdout_bytes",
+        "stderr_bytes"
+      ],
+      "title": "ResourceLimits",
+      "type": "object"
+    }
+  },
+  "$id": "forge:contracts/job_spec",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "arguments": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Arguments",
+      "type": "object"
+    },
+    "attempt_number": {
+      "minimum": 1,
+      "title": "Attempt Number",
+      "type": "integer"
+    },
+    "controller_id": {
+      "pattern": "^controller_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Controller Id",
+      "type": "string"
+    },
+    "effect_class": {
+      "enum": [
+        "read_only",
+        "scratch_only",
+        "workspace_patch",
+        "external_effect"
+      ],
+      "title": "Effect Class",
+      "type": "string"
+    },
+    "environment_profile_id": {
+      "default": "default",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Environment Profile Id",
+      "type": "string"
+    },
+    "expires_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "grant_digests": {
+      "items": {
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "title": "Grant Digests",
+      "type": "array"
+    },
+    "grant_ids": {
+      "items": {
+        "pattern": "^grant_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "title": "Grant Ids",
+      "type": "array"
+    },
+    "host_id": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Host Id",
+      "type": "string"
+    },
+    "issued_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+      "title": "Issued At",
+      "type": "string"
+    },
+    "job_id": {
+      "pattern": "^job_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "lease_epoch": {
+      "minimum": 1,
+      "title": "Lease Epoch",
+      "type": "integer"
+    },
+    "output_contract": {
+      "$ref": "#/$defs/OutputContract"
+    },
+    "policy_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Policy Digest",
+      "type": "string"
+    },
+    "project_id": {
+      "pattern": "^project_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "request_nonce": {
+      "maxLength": 64,
+      "minLength": 16,
+      "title": "Request Nonce",
+      "type": "string"
+    },
+    "resource_budget": {
+      "$ref": "#/$defs/ResourceLimits"
+    },
+    "retry_class": {
+      "enum": [
+        "safe_to_repeat",
+        "reconcile_before_retry",
+        "never_automatic"
+      ],
+      "title": "Retry Class",
+      "type": "string"
+    },
+    "runtime_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Runtime Digest"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "snapshot_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Snapshot Digest",
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "tool_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Tool Digest"
+    },
+    "tool_ref": {
+      "title": "Tool Ref",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_id",
+    "attempt_number",
+    "lease_epoch",
+    "project_id",
+    "task_id",
+    "controller_id",
+    "host_id",
+    "snapshot_digest",
+    "tool_ref",
+    "tool_digest",
+    "runtime_digest",
+    "arguments",
+    "grant_ids",
+    "grant_digests",
+    "policy_digest",
+    "resource_budget",
+    "effect_class",
+    "retry_class",
+    "request_nonce",
+    "issued_at",
+    "expires_at"
+  ],
+  "title": "JobSpec",
+  "type": "object"
+}

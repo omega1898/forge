@@ -57,7 +57,13 @@
         "assessment.record",
         "finding.record",
         "plan.apply",
-        "task.complete"
+        "task.complete",
+        "job.create",
+        "job.receipt",
+        "job.observe",
+        "job.retry",
+        "job.reconciliation_required",
+        "task.cancel"
       ],
       "title": "Method",
       "type": "string"

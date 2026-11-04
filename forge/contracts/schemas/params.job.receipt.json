@@ -1,0 +1,55 @@
+{
+  "$id": "forge:contracts/params.job.receipt",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "accepted": {
+      "title": "Accepted",
+      "type": "boolean"
+    },
+    "attempt_number": {
+      "minimum": 1,
+      "title": "Attempt Number",
+      "type": "integer"
+    },
+    "job_id": {
+      "pattern": "^job_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "kind": {
+      "default": "submit",
+      "enum": [
+        "submit",
+        "cancel"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "lease_epoch": {
+      "minimum": 1,
+      "title": "Lease Epoch",
+      "type": "integer"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    }
+  },
+  "required": [
+    "job_id",
+    "attempt_number",
+    "lease_epoch",
+    "accepted"
+  ],
+  "title": "JobReceiptParams",
+  "type": "object"
+}

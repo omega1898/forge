@@ -140,7 +140,7 @@ def test_controller_only_task_completes_without_a_job(world: World) -> None:
     assert receipt.result["reason"] == "acknowledged_without_criteria"
     task = world.store.task(task_id)
     assert task.status == "completed"
-    assert world.store.conn.execute("SELECT name FROM sqlite_master WHERE name = 'jobs'").fetchone() is None
+    assert world.store.jobs(task_id=task_id) == []  # no execution job was needed or invented
 
 
 def test_models_cannot_declare_criterion_free_work_done(world: World, model_actor) -> None:  # noqa: ANN001

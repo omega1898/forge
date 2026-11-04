@@ -1,0 +1,73 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "forge:contracts/params.job.observe",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One host event, relayed by the dispatcher. Fenced by attempt and epoch.",
+  "properties": {
+    "attempt_number": {
+      "minimum": 1,
+      "title": "Attempt Number",
+      "type": "integer"
+    },
+    "job_id": {
+      "pattern": "^job_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "accepted",
+        "started",
+        "progress",
+        "finished",
+        "cancel_acknowledged",
+        "lost"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "lease_epoch": {
+      "minimum": 1,
+      "title": "Lease Epoch",
+      "type": "integer"
+    },
+    "payload": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Payload",
+      "type": "object"
+    },
+    "sequence": {
+      "minimum": 1,
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "state": {
+      "enum": [
+        "queued",
+        "leased",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "lost"
+      ],
+      "title": "State",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_id",
+    "attempt_number",
+    "lease_epoch",
+    "sequence",
+    "kind",
+    "state"
+  ],
+  "title": "JobObserveParams",
+  "type": "object"
+}

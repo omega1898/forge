@@ -44,6 +44,13 @@ SCHEMA_MODELS = {
     "params.finding.record": commands.FindingRecordParams,
     "params.plan.apply": commands.PlanApplyParams,
     "params.task.complete": commands.TaskCompleteParams,
+    "params.job.create": commands.JobCreateParams,
+    "params.job.receipt": commands.JobReceiptParams,
+    "params.job.observe": commands.JobObserveParams,
+    "params.job.retry": commands.JobRetryParams,
+    "params.job.reconciliation_required": commands.JobReconciliationParams,
+    "params.task.cancel": commands.TaskCancelParams,
+    "job_spec": __import__("forge.contracts.jobs", fromlist=["JobSpec"]).JobSpec,
     "record.project": records.Project,
     "record.requirement": records.Requirement,
     "record.criterion": records.Criterion,
@@ -55,6 +62,7 @@ SCHEMA_MODELS = {
     "record.evidence": records.Evidence,
     "record.assessment": records.Assessment,
     "record.finding": records.Finding,
+    "record.job": records.Job,
     "report.project_summary": ProjectSummary,
 }
 

@@ -201,6 +201,27 @@ class Finding(CommonFields):
     evidence_refs: list[EvidenceId]
 
 
+class Job(StrictModel):
+    job_id: JobId
+    attempt_number: int = Field(ge=1)
+    project_id: ProjectId
+    task_id: TaskId
+    host_id: str
+    lease_epoch: int = Field(ge=1)
+    spec: dict[str, JsonValue]
+    job_digest: Digest
+    effect_class: str
+    retry_class: str
+    execution_status: Literal["queued", "leased", "running", "succeeded", "failed", "cancelled", "lost"]
+    host_event_seq: int
+    cancel_requested_at: Timestamp | None
+    reconciliation: Literal["required", "resolved"] | None
+    outcome: dict[str, JsonValue] | None
+    created_at: Timestamp
+    updated_at: Timestamp
+    record_version: int
+
+
 class EventRecord(StrictModel):
     """One committed, immutable entry in the project's event log."""
 

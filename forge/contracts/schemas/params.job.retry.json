@@ -1,0 +1,41 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "forge:contracts/params.job.retry",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "job_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Job Digest",
+      "type": "string"
+    },
+    "previous_attempt": {
+      "minimum": 1,
+      "title": "Previous Attempt",
+      "type": "integer"
+    },
+    "reason": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "spec": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Spec",
+      "type": "object"
+    }
+  },
+  "required": [
+    "previous_attempt",
+    "spec",
+    "job_digest",
+    "reason"
+  ],
+  "title": "JobRetryParams",
+  "type": "object"
+}
