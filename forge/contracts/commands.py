@@ -63,6 +63,7 @@ Method = Literal[
     "task.cancel",
     "intent.submit",
     "model.call_record",
+    "snapshot.record_candidate",
 ]
 
 # Methods that change an existing record and therefore must say which version
@@ -379,6 +380,13 @@ class ModelCallRecordParams(StrictModel):
     wall_ms: int = Field(ge=0)
 
 
+class SnapshotRecordCandidateParams(StrictModel):
+    parent_snapshot_id: IdOf("snapshot")
+    manifest_digest: Digest
+    manifest_size: int = Field(ge=0)
+    producer_ref: AnyId | None = None
+
+
 PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "project.create": ProjectCreateParams,
     "requirement.create": RequirementCreateParams,
@@ -405,6 +413,7 @@ PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "task.cancel": TaskCancelParams,
     "intent.submit": IntentSubmitParams,
     "model.call_record": ModelCallRecordParams,
+    "snapshot.record_candidate": SnapshotRecordCandidateParams,
 }
 
 

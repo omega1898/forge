@@ -52,6 +52,7 @@ SCHEMA_MODELS = {
     "params.task.cancel": commands.TaskCancelParams,
     "params.intent.submit": commands.IntentSubmitParams,
     "params.model.call_record": commands.ModelCallRecordParams,
+    "params.snapshot.record_candidate": commands.SnapshotRecordCandidateParams,
     "job_spec": __import__("forge.contracts.jobs", fromlist=["JobSpec"]).JobSpec,
     "record.project": records.Project,
     "record.requirement": records.Requirement,

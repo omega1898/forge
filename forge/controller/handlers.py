@@ -34,6 +34,7 @@ from forge.contracts.commands import (
     FindingRecordParams,
     IntentSubmitParams,
     ModelCallRecordParams,
+    SnapshotRecordCandidateParams,
     JobCreateParams,
     JobObserveParams,
     JobReceiptParams,
@@ -93,6 +94,25 @@ Handler = Callable[[HandlerContext, Command], Outcome]
 
 
 # ------------------------------------------------------------------ helpers --
+
+
+def _status_event(task, to_status: str, reason: str, *, version: int | None = None) -> DomainEvent:  # noqa: ANN001
+    """A task.status_changed event that respects the lifecycle table.
+
+    Handlers that change a task's status as a side effect (job admission,
+    reconciliation, superseding) go through this too, so no code path can
+    emit a transition the table forbids.
+    """
+    if not is_allowed(task.status, to_status):
+        raise ForgeError(
+            ErrorCode.INTERNAL_ERROR,
+            f"internal transition {task.status} -> {to_status} for {task.task_id} violates the task lifecycle",
+        )
+    return DomainEvent(
+        "task.status_changed",
+        {"task_id": task.task_id, "from_status": task.status, "to_status": to_status, "reason": reason,
+         "record_version": (version if version is not None else task.record_version + 1)},
+    )
 
 
 def _require_version(command: Command, current: int, object_id: str) -> None:
@@ -771,13 +791,7 @@ def plan_apply(ctx: HandlerContext, command: Command) -> Outcome:
         )
         if old.status not in TERMINAL_TASK_STATUSES:
             version += 1
-            events.append(
-                DomainEvent(
-                    "task.status_changed",
-                    {"task_id": old.task_id, "from_status": old.status, "to_status": "cancelled",
-                     "reason": f"superseded by {key_to_id[task.key]}", "record_version": version},
-                )
-            )
+            events.append(_status_event(old, "cancelled", f"superseded by {key_to_id[task.key]}", version=version))
         versions[old.task_id] = version
         superseded.append(old.task_id)
     plan_revision = ctx.project.plan_revision + 1
@@ -912,11 +926,7 @@ def job_create(ctx: HandlerContext, command: Command) -> Outcome:
     return Outcome(
         events=[
             DomainEvent("job.created", {"job": _job_record(spec, params.job_digest), "outbox_id": new_id("command")}),
-            DomainEvent(
-                "task.status_changed",
-                {"task_id": task.task_id, "from_status": "queued", "to_status": "running",
-                 "reason": f"job {spec.job_id} admitted", "record_version": task.record_version + 1},
-            ),
+            _status_event(task, "running", f"job {spec.job_id} admitted"),
         ],
         result={"job_id": spec.job_id, "attempt_number": 1, "lease_epoch": 1},
     )
@@ -1017,11 +1027,9 @@ def job_reconciliation_required(ctx: HandlerContext, command: Command) -> Outcom
     events = [DomainEvent("job.updated", {"job_id": job.job_id, "attempt_number": job.attempt_number,
                                           "execution_status": "lost", "reconciliation": "required"})]
     if task.status == "running":
-        events.append(DomainEvent(
-            "task.status_changed",
-            {"task_id": task.task_id, "from_status": "running", "to_status": "blocked",
-             "reason": f"reconciliation required: {params.reason}", "record_version": task.record_version + 1},
-        ))
+        # Reconciling an uncertain external effect needs a person: per the
+        # lifecycle table a running task waits for the user (it is not "blocked").
+        events.append(_status_event(task, "waiting_for_user", f"reconciliation required: {params.reason}"))
     return Outcome(events=events, result={"task_id": task.task_id, "reconciliation": "required"})
 
 
@@ -1036,11 +1044,7 @@ def task_cancel(ctx: HandlerContext, command: Command) -> Outcome:
     active = ctx.store.jobs(task_id=task.task_id, active_only=True)
     if not active:
         return Outcome(
-            events=[DomainEvent(
-                "task.status_changed",
-                {"task_id": task.task_id, "from_status": task.status, "to_status": "cancelled",
-                 "reason": params.reason, "record_version": task.record_version + 1},
-            )],
+            events=[_status_event(task, "cancelled", params.reason)],
             result={"task_id": task.task_id, "status": "cancelled"},
         )
     events = [
@@ -1083,6 +1087,37 @@ def model_call_record(ctx: HandlerContext, command: Command) -> Outcome:
                    result={"call_id": params.call_id})
 
 
+def snapshot_record_candidate(ctx: HandlerContext, command: Command) -> Outcome:
+    """Record a candidate built from a parent snapshot plus proposed files."""
+    from forge.workspace.snapshot import load_manifest
+
+    params: SnapshotRecordCandidateParams = command.params  # type: ignore[assignment]
+    parent = ctx.store.snapshot(params.parent_snapshot_id)
+    if parent is None:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{params.parent_snapshot_id} does not exist")
+    if ctx.blobs is None or not ctx.blobs.exists(params.manifest_digest):
+        raise ForgeError(ErrorCode.ARTIFACT_MISSING, "candidate manifest was not stored first")
+    manifest = load_manifest(ctx.blobs, params.manifest_digest)  # verifies canonical form and digest
+    for entry in manifest.entries:
+        if not ctx.blobs.exists(entry.digest):
+            raise ForgeError(ErrorCode.ARTIFACT_MISSING, f"candidate file {entry.path} has no stored bytes")
+    artifact_id, snapshot_id = new_id("artifact"), new_id("snapshot")
+    artifact = {"artifact_id": artifact_id, "digest": params.manifest_digest, "size": params.manifest_size,
+                "content_type": "application/json", "artifact_kind": "snapshot_manifest", "sensitivity": "project",
+                "retention": "keep", "producer_ref": params.producer_ref}
+    snapshot = {"snapshot_id": snapshot_id, "manifest_digest": params.manifest_digest,
+                "manifest_artifact_id": artifact_id, "source_root": parent.source_root,
+                "base_commit": manifest.base_commit, "capture_policy_revision": manifest.capture_policy_revision,
+                "file_count": len(manifest.entries), "total_bytes": manifest.total_bytes,
+                "excluded_count": len(manifest.excluded), "dirty_paths": [],
+                "parent_snapshot_id": parent.snapshot_id, "origin": "candidate"}
+    return Outcome(
+        events=[DomainEvent("artifact.registered", {"artifact": artifact}),
+                DomainEvent("snapshot.captured", {"snapshot": snapshot})],
+        result={"snapshot_id": snapshot_id, "manifest_digest": params.manifest_digest},
+    )
+
+
 Preparer = Callable[[PrepareContext, Command], Any]
 
 PREPARERS: dict[str, Preparer] = {
@@ -1117,6 +1152,7 @@ HANDLERS: dict[str, Handler] = {
     "task.cancel": task_cancel,
     "intent.submit": intent_submit,
     "model.call_record": model_call_record,
+    "snapshot.record_candidate": snapshot_record_candidate,
 }
 
 # Execution hosts report observations; they do not edit plans or decide.
@@ -1128,7 +1164,7 @@ ALLOWED_ACTOR_KINDS: dict[str, frozenset[str]] = {
 for _method in (
     "artifact.register", "evidence.record_execution", "assessment.record", "finding.record",
     "job.create", "job.receipt", "job.observe", "job.retry", "job.reconciliation_required",
-    "model.call_record",
+    "model.call_record", "snapshot.record_candidate",
 ):
     ALLOWED_ACTOR_KINDS[_method] = frozenset({"system"})
 # Generated tests stay proposals until a person (or FORGE itself) admits them.

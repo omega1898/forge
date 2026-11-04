@@ -293,7 +293,7 @@ def test_interrupted_flash_with_unknown_state_requires_reconciliation_ex_t11(rig
     job = rig.jobs.settle(job_id)
     assert (job.execution_status, job.reconciliation, job.attempt_number) == ("lost", "required", 1)
     task = rig.controller.store.task(task_id)
-    assert task.status == "blocked"
+    assert task.status == "waiting_for_user"  # a person must reconcile
     for _ in range(3):  # further recovery passes never repeat the effect
         rig.jobs.recover()
     assert rig.controller.store.job(job_id).attempt_number == 1

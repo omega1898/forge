@@ -65,7 +65,8 @@
         "job.reconciliation_required",
         "task.cancel",
         "intent.submit",
-        "model.call_record"
+        "model.call_record",
+        "snapshot.record_candidate"
       ],
       "title": "Method",
       "type": "string"
