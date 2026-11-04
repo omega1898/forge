@@ -99,6 +99,7 @@ def run_suite(
     toolchain_paths: list[str] | None = None,
     env: dict[str, str] | None = None,
     on_observation: Callable[[str, ExecutionObservation], None] | None = None,
+    placeholders: dict[str, str] | None = None,
 ) -> SuiteRun:
     """Run every case (repeat > 1 also checks that results are deterministic).
 
@@ -116,7 +117,7 @@ def run_suite(
         for attempt in range(repeat):
             case_dir = work_root / f"case-{case.case_id}-{attempt}"
             _write_case_files(case_dir, case.file_bytes())
-            argv = [_resolve(part, python_path) for part in suite.entrypoint] + [
+            argv = [(placeholders or {}).get(part) or _resolve(part, python_path) for part in suite.entrypoint] + [
                 arg.replace("{case}", "/case") for arg in case.args
             ]
             spec = SandboxSpec(

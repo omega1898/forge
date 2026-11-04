@@ -23,7 +23,7 @@ from forge.contracts.digests import canonical_json_bytes, sha256_digest
 from forge.contracts.paths import check_relative_path
 
 MAX_CASE_FILE_BYTES = 1024 * 1024
-ALLOWED_PLACEHOLDERS = ("{python}", "{case}")
+ALLOWED_PLACEHOLDERS = ("{python}", "{case}", "{java}")
 
 
 class ExpectedResult(StrictModel):
