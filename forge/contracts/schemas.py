@@ -53,6 +53,8 @@ SCHEMA_MODELS = {
     "params.intent.submit": commands.IntentSubmitParams,
     "params.model.call_record": commands.ModelCallRecordParams,
     "params.snapshot.record_candidate": commands.SnapshotRecordCandidateParams,
+    "params.proposal.create": commands.ProposalCreateParams,
+    "params.change.record_application": commands.ChangeRecordApplicationParams,
     "job_spec": __import__("forge.contracts.jobs", fromlist=["JobSpec"]).JobSpec,
     "record.project": records.Project,
     "record.requirement": records.Requirement,

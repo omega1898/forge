@@ -3,10 +3,14 @@
 An offline software engineering controller, built from the *FORGE Engineering
 Blueprint, design baseline 0.1 (4 November 2026)*.
 
-> **Status: early construction.** Tickets F01 and F02 (blueprint Session 1)
-> and D01 (project summary as code) are implemented and tested. FORGE does
-> **not** yet run code, call a model, capture snapshots, or provide an editor
-> extension. Nothing here is security-qualified.
+> **Status: walking skeleton complete (F01-F12).** One local Linux host, one
+> model adapter (fake or any OpenAI-compatible local server such as
+> llama.cpp), a small Python utility, project record, snapshots, sandboxed
+> tools, protected evaluation, proposed patches, safe application,
+> packaging and recovery all work end to end and are tested. Not yet built:
+> the editor extension, teaching, non-Python language packs, Windows/macOS
+> hosts, offline bundles. Nothing here is security-qualified; the Linux
+> sandbox is for trusted code only.
 
 ## What exists today
 
@@ -24,8 +28,9 @@ Blueprint, design baseline 0.1 (4 November 2026)*.
 | F09 | Model gateway: probed configurations, fake and OpenAI-compatible (llama.cpp) adapters, token budgets, redaction, call records; D04 model slots with grammar-safe schemas and fact-checking validators | **Done** |
 | F10 | Snapshot-bound index (Python ast definitions, imports, tests; SQLite FTS5); context bundles with budgets, omissions and excerpts; citation checks; D05 project facts | **Done** |
 | F11 | Python pack; build_tool workflow from request to released package (the walking skeleton); offline packaging check; D06 capabilities (review, bug fix, test strategy, tech debt) | **Done** |
-| F12–F24 | Safe apply, editor, other packs, ... | In progress |
-| D07–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
+| F12 | Change proposals bound to exact digests; safe apply with conflict detection and a crash-recovery journal; strict patch applier; bounded assistant loop; D07 generate-and-verify admission | **Done** (walking skeleton complete) |
+| F13–F24 | Editor, teaching, other packs, platforms, offline bundles | In progress |
+| D08–D11 | Remaining skill-distillation tickets (see design doc) | Not started |
 
 Acceptance results checked by the test suite (`tests/`):
 

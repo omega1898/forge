@@ -51,7 +51,9 @@
         "task.cancel",
         "intent.submit",
         "model.call_record",
-        "snapshot.record_candidate"
+        "snapshot.record_candidate",
+        "proposal.create",
+        "change.record_application"
       ],
       "title": "Method",
       "type": "string"

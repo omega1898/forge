@@ -29,7 +29,7 @@ Projector = Callable[[sqlite3.Connection, EventRecord], None]
 
 # Order matters when clearing: children before parents (foreign keys).
 PROJECTION_TABLES = (
-    "model_calls", "intents", "outbox", "jobs", "plan_revisions", "findings", "assessments", "evidence",
+    "applications", "proposals", "model_calls", "intents", "outbox", "jobs", "plan_revisions", "findings", "assessments", "evidence",
     "task_dependencies", "decisions", "tasks", "snapshots", "artifacts", "records", "projects",
 )
 
@@ -414,6 +414,31 @@ def _model_call_recorded(conn: sqlite3.Connection, event: EventRecord) -> None:
     )
 
 
+def _proposal_created(conn: sqlite3.Connection, event: EventRecord) -> None:
+    item = event.payload["proposal"]
+    conn.execute(
+        "INSERT INTO proposals (proposal_id, project_id, task_id, kind, base_snapshot_id, candidate_snapshot_id,"
+        " proposal_digest, changes_json, status, created_at, created_by, record_version)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, 1)",
+        (item["proposal_id"], event.project_id, item["task_id"], item["kind"], item["base_snapshot_id"],
+         item["candidate_snapshot_id"], item["proposal_digest"], _json(item["changes"]), event.occurred_at,
+         event.actor_id),
+    )
+
+
+def _change_application_recorded(conn: sqlite3.Connection, event: EventRecord) -> None:
+    item = event.payload
+    conn.execute(
+        "INSERT INTO applications (apply_id, proposal_id, outcome, detail_json, created_at, created_by)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        (item["apply_id"], item["proposal_id"], item["outcome"], _json(item["detail"]), event.occurred_at,
+         event.actor_id),
+    )
+    if item["outcome"] == "applied":
+        conn.execute("UPDATE proposals SET status = 'applied', record_version = record_version + 1"
+                     " WHERE proposal_id = ?", (item["proposal_id"],))
+
+
 PROJECTORS: dict[tuple[str, int], Projector] = {
     ("project.created", 1): _project_created,
     ("requirement.created", 1): _record_created("requirement"),
@@ -436,6 +461,8 @@ PROJECTORS: dict[tuple[str, int], Projector] = {
     ("job.updated", 1): _job_updated,
     ("intent.submitted", 1): _intent_submitted,
     ("model.call_recorded", 1): _model_call_recorded,
+    ("proposal.created", 1): _proposal_created,
+    ("change.application_recorded", 1): _change_application_recorded,
 }
 
 

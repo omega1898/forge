@@ -274,6 +274,19 @@ class RecordReader:
             calls.append(item)
         return calls
 
+    def proposal(self, proposal_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute("SELECT * FROM proposals WHERE proposal_id = ?", (proposal_id,)).fetchone()
+        if row is None:
+            return None
+        item = dict(row)
+        item["changes"] = json.loads(item.pop("changes_json"))
+        return item
+
+    def applications(self, proposal_id: str) -> list[dict[str, Any]]:
+        rows = self.conn.execute("SELECT * FROM applications WHERE proposal_id = ? ORDER BY created_at, apply_id",
+                                 (proposal_id,))
+        return [{**dict(row), "detail": json.loads(row["detail_json"])} for row in rows]
+
     def plan_revisions(self) -> list[dict[str, Any]]:
         rows = self.conn.execute("SELECT * FROM plan_revisions ORDER BY plan_revision")
         return [

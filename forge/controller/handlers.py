@@ -35,6 +35,8 @@ from forge.contracts.commands import (
     IntentSubmitParams,
     ModelCallRecordParams,
     SnapshotRecordCandidateParams,
+    ProposalCreateParams,
+    ChangeRecordApplicationParams,
     JobCreateParams,
     JobObserveParams,
     JobReceiptParams,
@@ -160,6 +162,9 @@ def _current_revision(ctx: HandlerContext, object_id: str) -> int | None:
     if kind == "decision":
         record = store.decision(object_id)
         return None if record is None else record.record_version
+    if kind == "proposal":
+        proposal = store.proposal(object_id)
+        return None if proposal is None else proposal["record_version"]
     raise ForgeError(
         ErrorCode.INVALID_REQUEST, f"{kind} records cannot be referenced here", related_ids=[object_id]
     )
@@ -1118,6 +1123,61 @@ def snapshot_record_candidate(ctx: HandlerContext, command: Command) -> Outcome:
     )
 
 
+# Paths an implementation proposal may not change: tests and evaluator
+# configuration define success, so changing them needs its own reviewed
+# test_change proposal (INT-T10).
+PROTECTED_PREFIXES = ("tests/", "test/", "evaluation/", ".forge-eval/", "hidden_tests/", "conftest.py")
+
+
+def proposal_create(ctx: HandlerContext, command: Command) -> Outcome:
+    from forge.contracts.digests import digest_json
+    from forge.workspace.snapshot import load_manifest
+
+    params: ProposalCreateParams = command.params  # type: ignore[assignment]
+    if params.task_id is not None and ctx.store.task(params.task_id) is None:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{params.task_id} does not exist", related_ids=[params.task_id])
+    base, candidate = ctx.store.snapshot(params.base_snapshot_id), ctx.store.snapshot(params.candidate_snapshot_id)
+    if base is None or candidate is None:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, "base or candidate snapshot does not exist")
+    if candidate.parent_snapshot_id != base.snapshot_id:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, "the candidate was not built from this base snapshot")
+    old = {e.path: e for e in load_manifest(ctx.blobs, base.manifest_digest).entries}
+    new = {e.path: e for e in load_manifest(ctx.blobs, candidate.manifest_digest).entries}
+    changes = []
+    for path in sorted(set(old) | set(new)):
+        before, after = old.get(path), new.get(path)
+        if before is not None and after is not None and before.digest == after.digest and before.executable == after.executable:
+            continue
+        changes.append({"path": path, "base_digest": before.digest if before else None,
+                        "new_digest": after.digest if after else None,
+                        "change": "add" if before is None else ("delete" if after is None else "modify")})
+    if not changes:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, "the candidate makes no changes")
+    protected = [c["path"] for c in changes if c["path"].startswith(PROTECTED_PREFIXES)]
+    if protected and params.kind == "implementation":
+        raise ForgeError(
+            ErrorCode.PERMISSION_DENIED,
+            "an implementation proposal may not change tests or evaluator configuration; "
+            "submit a separate test_change proposal for review",
+            details={"protected_paths": protected},
+        )
+    digest = digest_json({"base_manifest": base.manifest_digest, "changes": changes})
+    proposal_id = new_id("proposal")
+    item = {"proposal_id": proposal_id, "task_id": params.task_id, "kind": params.kind,
+            "base_snapshot_id": base.snapshot_id, "candidate_snapshot_id": candidate.snapshot_id,
+            "proposal_digest": digest, "changes": changes}
+    return Outcome(events=[DomainEvent("proposal.created", {"proposal": item})],
+                   result={"proposal_id": proposal_id, "proposal_digest": digest, "changes": len(changes)})
+
+
+def change_record_application(ctx: HandlerContext, command: Command) -> Outcome:
+    params: ChangeRecordApplicationParams = command.params  # type: ignore[assignment]
+    if ctx.store.proposal(params.proposal_id) is None:
+        raise ForgeError(ErrorCode.INVALID_REQUEST, f"{params.proposal_id} does not exist")
+    return Outcome(events=[DomainEvent("change.application_recorded", params.model_dump(mode="json"))],
+                   result={"apply_id": params.apply_id, "outcome": params.outcome})
+
+
 Preparer = Callable[[PrepareContext, Command], Any]
 
 PREPARERS: dict[str, Preparer] = {
@@ -1153,6 +1213,8 @@ HANDLERS: dict[str, Handler] = {
     "intent.submit": intent_submit,
     "model.call_record": model_call_record,
     "snapshot.record_candidate": snapshot_record_candidate,
+    "proposal.create": proposal_create,
+    "change.record_application": change_record_application,
 }
 
 # Execution hosts report observations; they do not edit plans or decide.
@@ -1164,7 +1226,7 @@ ALLOWED_ACTOR_KINDS: dict[str, frozenset[str]] = {
 for _method in (
     "artifact.register", "evidence.record_execution", "assessment.record", "finding.record",
     "job.create", "job.receipt", "job.observe", "job.retry", "job.reconciliation_required",
-    "model.call_record", "snapshot.record_candidate",
+    "model.call_record", "snapshot.record_candidate", "proposal.create", "change.record_application",
 ):
     ALLOWED_ACTOR_KINDS[_method] = frozenset({"system"})
 # Generated tests stay proposals until a person (or FORGE itself) admits them.

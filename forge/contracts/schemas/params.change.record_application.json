@@ -1,0 +1,44 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "forge:contracts/params.change.record_application",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "apply_id": {
+      "maxLength": 80,
+      "minLength": 8,
+      "title": "Apply Id",
+      "type": "string"
+    },
+    "detail": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Detail",
+      "type": "object"
+    },
+    "outcome": {
+      "enum": [
+        "applied",
+        "rolled_back",
+        "conflict"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "proposal_id": {
+      "pattern": "^proposal_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Proposal Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "apply_id",
+    "outcome"
+  ],
+  "title": "ChangeRecordApplicationParams",
+  "type": "object"
+}

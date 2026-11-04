@@ -64,6 +64,8 @@ Method = Literal[
     "intent.submit",
     "model.call_record",
     "snapshot.record_candidate",
+    "proposal.create",
+    "change.record_application",
 ]
 
 # Methods that change an existing record and therefore must say which version
@@ -387,6 +389,20 @@ class SnapshotRecordCandidateParams(StrictModel):
     producer_ref: AnyId | None = None
 
 
+class ProposalCreateParams(StrictModel):
+    task_id: TaskId | None = None
+    kind: Literal["implementation", "test_change"] = "implementation"
+    base_snapshot_id: IdOf("snapshot")
+    candidate_snapshot_id: IdOf("snapshot")
+
+
+class ChangeRecordApplicationParams(StrictModel):
+    proposal_id: IdOf("proposal")
+    apply_id: str = Field(min_length=8, max_length=80)
+    outcome: Literal["applied", "rolled_back", "conflict"]
+    detail: dict[str, JsonValue] = Field(default_factory=dict)
+
+
 PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "project.create": ProjectCreateParams,
     "requirement.create": RequirementCreateParams,
@@ -414,6 +430,8 @@ PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "intent.submit": IntentSubmitParams,
     "model.call_record": ModelCallRecordParams,
     "snapshot.record_candidate": SnapshotRecordCandidateParams,
+    "proposal.create": ProposalCreateParams,
+    "change.record_application": ChangeRecordApplicationParams,
 }
 
 
