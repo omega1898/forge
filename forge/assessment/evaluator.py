@@ -164,6 +164,10 @@ def run_suite(
         f"{len(suite.cases)} finite cases were run; passing them does not prove behavior on other inputs"
     )
     suite_digest = suite.digest()
+    try:
+        work_root.rmdir()          # every case's directories are already gone; leave nothing behind
+    except OSError:
+        pass                       # not empty (a caller keeps something there) or already removed
     return SuiteRun(
         suite_id=suite.suite_id,
         suite_digest=suite_digest,

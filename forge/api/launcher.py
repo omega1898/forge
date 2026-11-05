@@ -73,7 +73,8 @@ def launch(root: Path, *, port: int = 0, clock: Clock | None = None, job_service
     actor = ActorContext(actor_id=new_id("actor"), kind="human", channel="trusted_local")
     token = new_token()
     job_service = job_service_factory(controller) if job_service_factory else None
-    server = ApiServer(controller, tokens={token: actor}, port=port, job_service=job_service)
+    server = ApiServer(controller, tokens={token: actor}, port=port, job_service=job_service,
+                       work_root=root / "work")
     server.start()
     write_private(connection_file(root), {"url": server.url, "token": token, "actor_id": actor.actor_id})
     return Launched(store, trust, controller, server, token, actor, root)

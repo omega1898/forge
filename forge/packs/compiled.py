@@ -1,4 +1,4 @@
-"""Compiled-language packs on one assessor: COBOL, OCaml, and C for an emulated ARM target.
+"""Compiled-language packs on one assessor: Ada, Fortran, C, COBOL, OCaml, and C for an emulated ARM target.
 
 Each toolchain compiles candidate source inside the sandbox, in a scratch
 copy of the snapshot (some compilers write intermediate files next to the
@@ -54,19 +54,47 @@ class Toolchain(StrictModel):
     # Environment variables naming helper programs, resolved to real paths at build time
     # (for example COBOL's C compiler, whose /usr/bin/gcc is a symlink into /etc/alternatives).
     helper_env: dict[str, str] = Field(default_factory=dict)
+    # Older or unversioned names admitted when the preferred program is missing.
+    fallback_programs: tuple[str, ...] = ()
+    # Structural coverage (GCC 14+): flags before the sources and after them (gnatmake's -cargs/-largs).
+    coverage_arguments: list[str] = Field(default_factory=list)
+    coverage_after_sources: list[str] = Field(default_factory=list)
+    gcov: str | None = None                  # the gcov matching this compiler's version
+    # Static analysis: compile only, with every warning the compiler offers. None = no analyzer.
+    analyze_arguments: list[str] | None = None
 
+
+_GCC_COVERAGE = ["--coverage", "-fcondition-coverage"]
 
 TOOLCHAINS: dict[str, Toolchain] = {
+    # Ada through GNAT. gnatmake finds the units a main program depends on, so `sources` names the
+    # main unit(s); -cargs applies to every compilation and -largs to the link.
+    "ada": Toolchain(pack_id="ada", compiler="gnatmake", program="gnatmake-14", fallback_programs=("gnatmake",),
+                     suffixes=(".adb", ".ads"), arguments=["-q", "-o", "{output}"],
+                     coverage_after_sources=["-cargs", *_GCC_COVERAGE, "-largs", "--coverage"], gcov="gcov-14",
+                     analyze_arguments=["-c", "-q", "-gnatwa", "-gnatf"]),
+    "fortran": Toolchain(pack_id="fortran", compiler="gfortran", program="gfortran-14",
+                         fallback_programs=("gfortran",),
+                         suffixes=(".f", ".for", ".f77", ".f90", ".f95", ".f03", ".f08"),
+                         arguments=["-O1", "-o", "{output}"], coverage_arguments=_GCC_COVERAGE, gcov="gcov-14",
+                         analyze_arguments=["-c", "-Wall", "-Wextra"]),
+    "c": Toolchain(pack_id="c", compiler="gcc14", program="gcc-14", suffixes=(".c",),
+                   arguments=["-std=c11", "-O1", "-o", "{output}"], coverage_arguments=_GCC_COVERAGE, gcov="gcov-14",
+                   analyze_arguments=["-c", "-std=c11", "-Wall", "-Wextra", "-fanalyzer"]),
+    "cpp": Toolchain(pack_id="cpp", compiler="gxx14", program="g++-14", suffixes=(".cc", ".cpp", ".cxx"),
+                     arguments=["-std=c++17", "-O1", "-o", "{output}"], coverage_arguments=_GCC_COVERAGE,
+                     gcov="gcov-14", analyze_arguments=["-c", "-std=c++17", "-Wall", "-Wextra"]),
     "cobol": Toolchain(pack_id="cobol", compiler="cobc", program="cobc", suffixes=(".cbl", ".cob"),
                        arguments=["-x", "-O", "-o", "{output}"], config_paths=["/etc/gnucobol"],
-                       helper_env={"COB_CC": "gcc"}),
+                       helper_env={"COB_CC": "gcc"}, analyze_arguments=["-fsyntax-only", "-Wall"]),
     "ocaml": Toolchain(pack_id="ocaml", compiler="ocamlfind", program="ocamlfind", suffixes=(".ml",),
                        arguments=["ocamlopt", "-package", "str", "-linkpkg", "-o", "{output}"],
                        config_paths=["/etc/ocamlfind.conf"]),
     "c_arm": Toolchain(pack_id="c_arm", compiler="arm_gcc", program="arm-linux-gnueabihf-gcc", suffixes=(".c",),
                        arguments=["-std=c11", "-O1", "-Wall", "-Wextra", "-Werror", "-static", "-o", "{output}"],
-                       runner="qemu_arm", tier="emulator"),
+                       runner="qemu_arm", tier="emulator", analyze_arguments=["-c", "-std=c11", "-Wall", "-Wextra"]),
 }
+GCOV_TOOLS = {"gcov-14": "gcov14"}
 # Newer distributions ship the static emulator as plain qemu-arm (package qemu-user).
 RUNNERS = {"qemu_arm": ("qemu-arm-static", "qemu-arm")}
 
@@ -74,12 +102,18 @@ RUNNERS = {"qemu_arm": ("qemu-arm-static", "qemu-arm")}
 def admit_compiled_tools(registry: ToolRegistry) -> list[str]:
     admitted = []
     for toolchain in TOOLCHAINS.values():
-        found = shutil.which(toolchain.program)
-        if found:
-            registry.admit(toolchain.compiler, Path(os.path.realpath(found)), version="host",
+        found = next((path for program in (toolchain.program, *toolchain.fallback_programs)
+                      if (path := shutil.which(program))), None)
+        if found and toolchain.compiler not in admitted:
+            registry.admit(toolchain.compiler, Path(os.path.realpath(found)), version=Path(found).name,
                            toolchain_paths=[path for path in toolchain.config_paths if os.path.exists(path)],
                            side_effect_class="scratch_only")
             admitted.append(toolchain.compiler)
+    for program, tool_id in GCOV_TOOLS.items():
+        found = shutil.which(program)
+        if found:
+            registry.admit(tool_id, Path(os.path.realpath(found)), version=program)
+            admitted.append(tool_id)
     for tool_id, programs in RUNNERS.items():
         found = next((path for program in programs if (path := shutil.which(program))), None)
         if found:
@@ -89,7 +123,7 @@ def admit_compiled_tools(registry: ToolRegistry) -> list[str]:
 
 
 class CompiledBuild(StrictModel):
-    toolchain: Literal["cobol", "ocaml", "c_arm"]
+    toolchain: Literal["ada", "fortran", "c", "cpp", "cobol", "ocaml", "c_arm"]
     sources: list[str] = Field(min_length=1, max_length=64)
 
     @field_validator("sources")

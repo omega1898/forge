@@ -21,7 +21,9 @@ directly.
 forge comply check --requirements reqs.csv --output report.md
 ```
 
-This produces the evidence FORGE can produce without running your code:
+`forge check` runs the tests, analysis and coverage first, then this
+compliance check. On its own, `forge comply check` produces the evidence
+FORGE can produce without running your code:
 
 - a CycloneDX 1.6 SBOM;
 - a secrets scan;
@@ -118,11 +120,11 @@ applies only to the snapshot it names.
 | Trace | `Implements: HLR-1` in code and `Verifies: HLR-1` in tests, checked against an optional requirements list (`--requirements`). Gaps are named: no code, no test, or a tag that is not a listed requirement. Finding no requirements at all is "not run", not "met". |
 | Vulnerabilities | Matches against OSV records you import (`forge comply import-vulns DIR`), by listed version first, then by range. The record names the database by size and digest, because offline data ages. |
 
-The checks also read evidence the language packs record: test assessments,
-analyzer runs, sanitizer results, builds and their digests, approvals bound
-to change digests, and the event log's replay. Structural coverage evidence
-(statement, decision, MC/DC through GCC's `-fcondition-coverage`) comes with
-the avionics pack.
+The checks also read evidence that `forge check` records (see
+[check.md](check.md)): test assessments, analyzer runs, sanitizer results,
+builds and their digests, and structural coverage (statement, decision, and
+MC/DC through GCC 14's `-fcondition-coverage`). They also read approvals
+bound to change digests and the event log's replay.
 
 ## Limits
 
