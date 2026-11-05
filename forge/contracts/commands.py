@@ -22,7 +22,18 @@ from forge.contracts.base import IdempotencyKey, RevisionRef, Slug, StrictModel,
 from forge.contracts.clock import Timestamp
 from forge.contracts.digests import Digest, canonical_json_bytes
 from forge.contracts.errors import ErrorCode, ForgeError
-from forge.contracts.ids import ActorId, AnyId, CommandId, CriterionId, DecisionId, GrantId, ProjectId, TaskId
+from forge.contracts.ids import (
+    ActorId,
+    AnyId,
+    CommandId,
+    CriterionId,
+    DecisionId,
+    GrantId,
+    IdOf,
+    ProjectId,
+    TaskId,
+)
+from forge.contracts.paths import check_relative_path
 from forge.contracts.records import Budget, DecisionKind, TaskStatus, TaskType, WaiverPolicy
 from forge.contracts.versions import check_schema_version
 
@@ -35,12 +46,32 @@ Method = Literal[
     "task.transition",
     "decision.request",
     "decision.record",
+    "workspace.capture",
+    "suite.admit",
+    "artifact.register",
+    "evidence.record_execution",
+    "evidence.record_review",
+    "assessment.record",
+    "finding.record",
+    "plan.apply",
+    "task.complete",
+    "job.create",
+    "job.receipt",
+    "job.observe",
+    "job.retry",
+    "job.reconciliation_required",
+    "task.cancel",
+    "intent.submit",
+    "model.call_record",
+    "snapshot.record_candidate",
+    "proposal.create",
+    "change.record_application",
 ]
 
 # Methods that change an existing record and therefore must say which version
 # of that record the client last saw.
 VERSIONED_METHODS: frozenset[str] = frozenset(
-    {"task.add_dependency", "task.transition", "decision.record"}
+    {"task.add_dependency", "task.transition", "decision.record", "task.complete"}
 )
 
 MAX_PARAMETERS_BYTES = 16 * 1024
@@ -172,6 +203,206 @@ class DecisionRecordParams(StrictModel):
     proposal_digest: Digest | None = None
 
 
+class WorkspaceCaptureParams(StrictModel):
+    source_root: Slug
+    # Editor buffers with unsaved changes. Their unsaved text is NOT captured;
+    # the snapshot records that they existed so nobody assumes otherwise.
+    dirty_paths: list[str] = Field(default_factory=list, max_length=256)
+
+    @field_validator("dirty_paths")
+    @classmethod
+    def _relative(cls, value: list[str]) -> list[str]:
+        return [check_relative_path(item) for item in value]
+
+
+class SuiteAdmitParams(StrictModel):
+    # The suite itself (validated as an EvaluatorSuite by the controller).
+    suite: dict[str, JsonValue]
+
+
+class ArtifactRegisterParams(StrictModel):
+    digest: Digest
+    size: int = Field(ge=0)
+    content_type: Text(100)
+    artifact_kind: Slug
+    sensitivity: Literal["public", "project", "sensitive"] = "project"
+    retention: Literal["keep", "ephemeral"] = "keep"
+    producer_ref: AnyId | None = None
+
+
+class EvidenceRecordExecutionParams(StrictModel):
+    job_id: IdOf("job")
+    attempt_number: int = Field(ge=1)
+    snapshot_id: IdOf("snapshot")
+    tool_ref: Text(200)
+    environment_digest: Digest
+    evaluator_digest: Digest | None = None
+    observation_type: Slug
+    observation: dict[str, JsonValue]
+    artifact_refs: list[IdOf("artifact")] = Field(default_factory=list, max_length=64)
+
+
+class EvidenceRecordReviewParams(StrictModel):
+    subject_ref: RevisionRef
+    observation_type: Slug = "review_observation"
+    observation: dict[str, JsonValue]
+
+
+class AssessmentRecordParams(StrictModel):
+    criterion_ref: RevisionRef
+    snapshot_id: IdOf("snapshot") | None
+    evidence_refs: list[IdOf("evidence")] = Field(default_factory=list, max_length=64)
+    assessment_result: Literal["pass", "fail", "inconclusive", "not_run", "error", "not_applicable"]
+    assessor_ref: Text(200)
+    limitations: list[Text(1000)] = Field(default_factory=list, max_length=32)
+    summary: dict[str, JsonValue] = Field(default_factory=dict)
+    supersedes_assessment_id: IdOf("assessment") | None = None
+
+
+class FindingRecordParams(StrictModel):
+    rule_id: Text(100)
+    claim: Text(2000)
+    severity: Literal["critical", "high", "medium", "low", "info"]
+    confirmation: Literal["suspected", "confirmed"] = "suspected"
+    path: str | None = None
+    line: int | None = Field(default=None, ge=1)
+    fingerprint: Digest
+    snapshot_id: IdOf("snapshot") | None = None
+    evidence_refs: list[IdOf("evidence")] = Field(default_factory=list, max_length=64)
+
+    @field_validator("path")
+    @classmethod
+    def _path(cls, value: str | None) -> str | None:
+        return None if value is None else check_relative_path(value)
+
+
+class PlannedTask(StrictModel):
+    key: Slug  # local name, used by other entries in the same plan change
+    task_type: TaskType
+    title: Text(300)
+    requirement_refs: list[RevisionRef] = Field(default_factory=list, max_length=64)
+    criterion_refs: list[RevisionRef] = Field(default_factory=list, max_length=64)
+    input_refs: list[RevisionRef] = Field(default_factory=list, max_length=64)
+    depends_on: list[str] = Field(default_factory=list, max_length=64)
+    authority_ref: GrantId | None = None
+    budget: Budget
+    supersedes_task_id: TaskId | None = None
+
+
+class PlanDependency(StrictModel):
+    task: str  # a key from this change or an existing task ID
+    depends_on: str
+
+
+class PlanApplyParams(StrictModel):
+    base_plan_revision: int = Field(ge=0)
+    summary: Text(1000)
+    add_tasks: list[PlannedTask] = Field(default_factory=list, max_length=200)
+    add_dependencies: list[PlanDependency] = Field(default_factory=list, max_length=500)
+
+    @model_validator(mode="after")
+    def _not_empty(self) -> PlanApplyParams:
+        if not self.add_tasks and not self.add_dependencies:
+            raise ValueError("a plan change must add tasks or dependencies")
+        return self
+
+
+class TaskCompleteParams(StrictModel):
+    task_id: TaskId
+    # The snapshot whose assessments establish completion (None for tasks
+    # judged without a snapshot, such as decide tasks).
+    snapshot_id: IdOf("snapshot") | None = None
+    reason: Text(2000)
+
+
+class JobCreateParams(StrictModel):
+    spec: dict[str, JsonValue]
+    job_digest: Digest
+
+
+class JobReceiptParams(StrictModel):
+    kind: Literal["submit", "cancel"] = "submit"
+    job_id: IdOf("job")
+    attempt_number: int = Field(ge=1)
+    lease_epoch: int = Field(ge=1)
+    accepted: bool
+    reason: str | None = None
+
+
+class JobObserveParams(StrictModel):
+    """One host event, relayed by the dispatcher. Fenced by attempt and epoch."""
+
+    job_id: IdOf("job")
+    attempt_number: int = Field(ge=1)
+    lease_epoch: int = Field(ge=1)
+    sequence: int = Field(ge=1)
+    kind: Literal["accepted", "started", "progress", "finished", "cancel_acknowledged", "lost"]
+    state: Literal["queued", "leased", "running", "succeeded", "failed", "cancelled", "lost"]
+    payload: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class JobRetryParams(StrictModel):
+    previous_attempt: int = Field(ge=1)
+    spec: dict[str, JsonValue]
+    job_digest: Digest
+    reason: Text(1000)
+
+
+class JobReconciliationParams(StrictModel):
+    job_id: IdOf("job")
+    attempt_number: int = Field(ge=1)
+    reason: Text(1000)
+
+
+class TaskCancelParams(StrictModel):
+    task_id: TaskId
+    reason: Text(2000)
+
+
+class IntentSubmitParams(StrictModel):
+    text: Text(20_000)
+    mode: Literal["build", "pair", "learn", "review"] = "build"
+    artifact_refs: list[IdOf("artifact")] = Field(default_factory=list, max_length=32)
+
+
+class ModelCallRecordParams(StrictModel):
+    call_id: str = Field(min_length=1, max_length=100)
+    task_id: TaskId | None
+    model_config_id: str = Field(min_length=1, max_length=100)
+    config_digest: Digest
+    slot_id: Slug
+    status: str = Field(min_length=1, max_length=40)
+    prompt_digest: Digest
+    output_digest: Digest
+    output: dict[str, JsonValue] | None
+    errors: list[str] = Field(default_factory=list, max_length=10)
+    redactions: list[str] = Field(default_factory=list, max_length=20)
+    prompt_tokens: int | None
+    completion_tokens: int | None
+    wall_ms: int = Field(ge=0)
+
+
+class SnapshotRecordCandidateParams(StrictModel):
+    parent_snapshot_id: IdOf("snapshot")
+    manifest_digest: Digest
+    manifest_size: int = Field(ge=0)
+    producer_ref: AnyId | None = None
+
+
+class ProposalCreateParams(StrictModel):
+    task_id: TaskId | None = None
+    kind: Literal["implementation", "test_change"] = "implementation"
+    base_snapshot_id: IdOf("snapshot")
+    candidate_snapshot_id: IdOf("snapshot")
+
+
+class ChangeRecordApplicationParams(StrictModel):
+    proposal_id: IdOf("proposal")
+    apply_id: str = Field(min_length=8, max_length=80)
+    outcome: Literal["applied", "rolled_back", "conflict"]
+    detail: dict[str, JsonValue] = Field(default_factory=dict)
+
+
 PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "project.create": ProjectCreateParams,
     "requirement.create": RequirementCreateParams,
@@ -181,6 +412,26 @@ PARAMS_BY_METHOD: dict[str, type[StrictModel]] = {
     "task.transition": TaskTransitionParams,
     "decision.request": DecisionRequestParams,
     "decision.record": DecisionRecordParams,
+    "workspace.capture": WorkspaceCaptureParams,
+    "suite.admit": SuiteAdmitParams,
+    "artifact.register": ArtifactRegisterParams,
+    "evidence.record_execution": EvidenceRecordExecutionParams,
+    "evidence.record_review": EvidenceRecordReviewParams,
+    "assessment.record": AssessmentRecordParams,
+    "finding.record": FindingRecordParams,
+    "plan.apply": PlanApplyParams,
+    "task.complete": TaskCompleteParams,
+    "job.create": JobCreateParams,
+    "job.receipt": JobReceiptParams,
+    "job.observe": JobObserveParams,
+    "job.retry": JobRetryParams,
+    "job.reconciliation_required": JobReconciliationParams,
+    "task.cancel": TaskCancelParams,
+    "intent.submit": IntentSubmitParams,
+    "model.call_record": ModelCallRecordParams,
+    "snapshot.record_candidate": SnapshotRecordCandidateParams,
+    "proposal.create": ProposalCreateParams,
+    "change.record_application": ChangeRecordApplicationParams,
 }
 
 

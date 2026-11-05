@@ -31,6 +31,7 @@ ID_PREFIXES: frozenset[str] = frozenset(
         "experiment",
         "finding",
         "grant",
+        "intent",
         "job",
         "project",
         "proposal",
@@ -130,3 +131,12 @@ ActorId = IdOf("actor")
 CommandId = IdOf("command")
 EventId = IdOf("event")
 ControllerId = IdOf("controller")
+ArtifactId = IdOf("artifact")
+SnapshotId = IdOf("snapshot")
+JobId = IdOf("job")
+EvidenceId = IdOf("evidence")
+AssessmentId = IdOf("assessment")
+ProposalId = IdOf("proposal")
+FindingId = IdOf("finding")
+ExperimentId = IdOf("experiment")
+IntentId = IdOf("intent")

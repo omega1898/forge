@@ -22,6 +22,7 @@ import json
 import threading
 from collections.abc import Callable
 
+from forge.artifacts.blobs import BlobStore
 from forge.authority.grants import TrustStore
 from forge.contracts.clock import Clock, SystemClock, format_timestamp
 from forge.contracts.commands import ActorContext, CommandReceipt, parse_command
@@ -30,7 +31,13 @@ from forge.contracts.errors import ErrorCode, ForgeError
 from forge.contracts.ids import new_id
 from forge.contracts.records import EventRecord
 from forge.contracts.versions import SCHEMA_VERSION
-from forge.controller.handlers import ALLOWED_ACTOR_KINDS, HANDLERS, HandlerContext
+from forge.controller.handlers import (
+    ALLOWED_ACTOR_KINDS,
+    HANDLERS,
+    PREPARERS,
+    HandlerContext,
+    PrepareContext,
+)
 from forge.record.db import write_transaction
 from forge.record.events import append_event
 from forge.record.projections import apply_event
@@ -47,17 +54,27 @@ class Controller:
         clock: Clock | None = None,
         trust_store: TrustStore | None = None,
         controller_id: str | None = None,
+        blobs: BlobStore | None = None,
     ) -> None:
         self.store = store
+        # Blobs live beside the project database unless a store is supplied.
+        self.blobs = blobs if blobs is not None else BlobStore(store.path.parent / "blobs")
         self.clock = clock or SystemClock()
         self.trust_store = trust_store
         self.controller_id = controller_id or new_id("controller")
         self._write_lock = threading.Lock()
+        # The identity FORGE's own trusted services (evaluator, dispatcher)
+        # use when recording what they measured.
+        self.system_actor = ActorContext(actor_id=new_id("actor"), kind="system", channel="trusted_local")
         self._listeners: list[Listener] = []
         self.listener_errors: list[str] = []
 
     def subscribe(self, listener: Listener) -> None:
         self._listeners.append(listener)
+
+    def unsubscribe(self, listener: Listener) -> None:
+        if listener in self._listeners:
+            self._listeners.remove(listener)
 
     def apply_command(self, raw: object, actor: ActorContext) -> CommandReceipt:
         # Steps 1-2: validation and hashing, no database lock held.
@@ -68,6 +85,17 @@ class Controller:
                 ErrorCode.PERMISSION_DENIED, f"{actor.kind} actors may not call {envelope.method}"
             )
         request_digest = digest_json(command.semantic_payload())
+
+        # Step 2: expensive preparation (hashing a source tree) happens before
+        # the write lock. A retry of an already-accepted command skips it; the
+        # authoritative duplicate check still happens inside the transaction.
+        prepared = None
+        preparer = PREPARERS.get(envelope.method)
+        if preparer is not None and self.store.find_receipt(actor.actor_id, envelope.idempotency_key) is None:
+            prepared = preparer(
+                PrepareContext(store=self.store, actor=actor, trust_store=self.trust_store, blobs=self.blobs),
+                command,
+            )
 
         with self._write_lock:
             committed: list[EventRecord] = []
@@ -104,6 +132,8 @@ class Controller:
                     controller_id=self.controller_id,
                     trust_store=self.trust_store,
                     project=project,
+                    blobs=self.blobs,
+                    prepared=prepared,
                 )
                 outcome = HANDLERS[envelope.method](context, command)
 

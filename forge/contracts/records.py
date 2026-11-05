@@ -16,12 +16,18 @@ from forge.contracts.digests import Digest
 from forge.contracts.ids import (
     ActorId,
     AnyId,
+    ArtifactId,
+    AssessmentId,
     ControllerId,
     CriterionId,
     DecisionId,
+    EvidenceId,
+    FindingId,
     GrantId,
+    JobId,
     ProjectId,
     RequirementId,
+    SnapshotId,
     TaskId,
 )
 
@@ -54,6 +60,7 @@ class Project(CommonFields):
     source_roots: list[Slug]
     profile_id: Slug
     last_event_seq: int = Field(ge=0)
+    plan_revision: int = Field(default=0, ge=0)
 
 
 class Requirement(CommonFields):
@@ -94,6 +101,10 @@ class Task(CommonFields):
     workflow_revision: int = Field(ge=1)
     depends_on: list[TaskId]
     updated_at: Timestamp
+    supersedes_task_id: TaskId | None = None
+    superseded_by_task_id: TaskId | None = None
+    # How completion was judged (snapshot, assessments, waivers); None until completed.
+    completion: dict[str, JsonValue] | None = None
 
 
 class Decision(CommonFields):
@@ -108,6 +119,107 @@ class Decision(CommonFields):
     authority_ref: GrantId | None
     expires_at: Timestamp | None
     updated_at: Timestamp
+
+
+Sensitivity = Literal["public", "project", "sensitive"]
+Retention = Literal["keep", "ephemeral"]
+
+
+class Artifact(CommonFields):
+    artifact_id: ArtifactId
+    digest: Digest
+    size: int = Field(ge=0)
+    content_type: str
+    artifact_kind: Slug
+    sensitivity: Sensitivity
+    retention: Retention
+    producer_ref: AnyId | None
+    tombstoned_at: Timestamp | None
+    tombstone_reason: str | None
+
+
+class Snapshot(CommonFields):
+    snapshot_id: SnapshotId
+    manifest_digest: Digest
+    manifest_artifact_id: ArtifactId
+    source_root: Slug
+    base_commit: str | None
+    capture_policy_revision: int
+    file_count: int = Field(ge=0)
+    total_bytes: int = Field(ge=0)
+    excluded_count: int = Field(ge=0)
+    dirty_paths: list[str]
+    parent_snapshot_id: SnapshotId | None
+    origin: Literal["capture", "candidate"]
+
+
+AssessmentResult = Literal["pass", "fail", "inconclusive", "not_run", "error", "not_applicable"]
+Severity = Literal["critical", "high", "medium", "low", "info"]
+
+
+class Evidence(CommonFields):
+    evidence_id: EvidenceId
+    origin: Literal["execution", "review"]
+    job_id: JobId | None
+    attempt_number: int | None
+    snapshot_id: SnapshotId | None
+    tool_ref: str | None
+    environment_digest: Digest | None
+    evaluator_digest: Digest | None
+    subject_ref: RevisionRef | None
+    reviewer_id: ActorId | None
+    observation_type: Slug
+    observation: dict[str, JsonValue]
+    artifact_refs: list[ArtifactId]
+
+
+class Assessment(CommonFields):
+    assessment_id: AssessmentId
+    criterion_ref: RevisionRef
+    snapshot_id: SnapshotId | None
+    evidence_refs: list[EvidenceId]
+    assessment_result: AssessmentResult
+    assessor_ref: str
+    limitations: list[str]
+    summary: dict[str, JsonValue]
+    supersedes_assessment_id: AssessmentId | None
+    # Position of the recording event in the log: the authoritative order.
+    recorded_seq: int | None = None
+
+
+class Finding(CommonFields):
+    finding_id: FindingId
+    rule_id: str
+    claim: str
+    severity: Severity
+    status: Literal["open", "resolved", "waived", "false_positive"]
+    confirmation: Literal["suspected", "confirmed"]
+    path: str | None
+    line: int | None
+    fingerprint: Digest
+    snapshot_id: SnapshotId | None
+    evidence_refs: list[EvidenceId]
+
+
+class Job(StrictModel):
+    job_id: JobId
+    attempt_number: int = Field(ge=1)
+    project_id: ProjectId
+    task_id: TaskId
+    host_id: str
+    lease_epoch: int = Field(ge=1)
+    spec: dict[str, JsonValue]
+    job_digest: Digest
+    effect_class: str
+    retry_class: str
+    execution_status: Literal["queued", "leased", "running", "succeeded", "failed", "cancelled", "lost"]
+    host_event_seq: int
+    cancel_requested_at: Timestamp | None
+    reconciliation: Literal["required", "resolved"] | None
+    outcome: dict[str, JsonValue] | None
+    created_at: Timestamp
+    updated_at: Timestamp
+    record_version: int
 
 
 class EventRecord(StrictModel):

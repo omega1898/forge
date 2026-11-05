@@ -1,0 +1,133 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "forge:contracts/params.model.call_record",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "call_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Call Id",
+      "type": "string"
+    },
+    "completion_tokens": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Completion Tokens"
+    },
+    "config_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Config Digest",
+      "type": "string"
+    },
+    "errors": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 10,
+      "title": "Errors",
+      "type": "array"
+    },
+    "model_config_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Model Config Id",
+      "type": "string"
+    },
+    "output": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Output"
+    },
+    "output_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Output Digest",
+      "type": "string"
+    },
+    "prompt_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Prompt Digest",
+      "type": "string"
+    },
+    "prompt_tokens": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Prompt Tokens"
+    },
+    "redactions": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Redactions",
+      "type": "array"
+    },
+    "slot_id": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Slot Id",
+      "type": "string"
+    },
+    "status": {
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Status",
+      "type": "string"
+    },
+    "task_id": {
+      "anyOf": [
+        {
+          "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Task Id"
+    },
+    "wall_ms": {
+      "minimum": 0,
+      "title": "Wall Ms",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "call_id",
+    "task_id",
+    "model_config_id",
+    "config_digest",
+    "slot_id",
+    "status",
+    "prompt_digest",
+    "output_digest",
+    "output",
+    "prompt_tokens",
+    "completion_tokens",
+    "wall_ms"
+  ],
+  "title": "ModelCallRecordParams",
+  "type": "object"
+}

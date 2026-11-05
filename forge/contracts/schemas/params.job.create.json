@@ -1,0 +1,28 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "forge:contracts/params.job.create",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "job_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Job Digest",
+      "type": "string"
+    },
+    "spec": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Spec",
+      "type": "object"
+    }
+  },
+  "required": [
+    "spec",
+    "job_digest"
+  ],
+  "title": "JobCreateParams",
+  "type": "object"
+}

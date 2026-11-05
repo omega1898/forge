@@ -1,0 +1,42 @@
+{
+  "$id": "forge:contracts/params.snapshot.record_candidate",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "manifest_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Manifest Digest",
+      "type": "string"
+    },
+    "manifest_size": {
+      "minimum": 0,
+      "title": "Manifest Size",
+      "type": "integer"
+    },
+    "parent_snapshot_id": {
+      "pattern": "^snapshot_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Parent Snapshot Id",
+      "type": "string"
+    },
+    "producer_ref": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z]+_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Producer Ref"
+    }
+  },
+  "required": [
+    "parent_snapshot_id",
+    "manifest_digest",
+    "manifest_size"
+  ],
+  "title": "SnapshotRecordCandidateParams",
+  "type": "object"
+}

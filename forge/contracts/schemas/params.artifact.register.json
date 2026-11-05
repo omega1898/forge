@@ -1,0 +1,68 @@
+{
+  "$id": "forge:contracts/params.artifact.register",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_kind": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Artifact Kind",
+      "type": "string"
+    },
+    "content_type": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Content Type",
+      "type": "string"
+    },
+    "digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Digest",
+      "type": "string"
+    },
+    "producer_ref": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z]+_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Producer Ref"
+    },
+    "retention": {
+      "default": "keep",
+      "enum": [
+        "keep",
+        "ephemeral"
+      ],
+      "title": "Retention",
+      "type": "string"
+    },
+    "sensitivity": {
+      "default": "project",
+      "enum": [
+        "public",
+        "project",
+        "sensitive"
+      ],
+      "title": "Sensitivity",
+      "type": "string"
+    },
+    "size": {
+      "minimum": 0,
+      "title": "Size",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "digest",
+    "size",
+    "content_type",
+    "artifact_kind"
+  ],
+  "title": "ArtifactRegisterParams",
+  "type": "object"
+}

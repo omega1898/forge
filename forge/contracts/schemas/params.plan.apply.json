@@ -1,0 +1,202 @@
+{
+  "$defs": {
+    "Budget": {
+      "additionalProperties": false,
+      "description": "Upper limits a task may consume. Milliseconds, measured monotonically.",
+      "properties": {
+        "max_attempts": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "max_wall_ms": {
+          "maximum": 86400000,
+          "minimum": 1,
+          "title": "Max Wall Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_wall_ms",
+        "max_attempts"
+      ],
+      "title": "Budget",
+      "type": "object"
+    },
+    "PlanDependency": {
+      "additionalProperties": false,
+      "properties": {
+        "depends_on": {
+          "title": "Depends On",
+          "type": "string"
+        },
+        "task": {
+          "title": "Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task",
+        "depends_on"
+      ],
+      "title": "PlanDependency",
+      "type": "object"
+    },
+    "PlannedTask": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_ref": {
+          "anyOf": [
+            {
+              "pattern": "^grant_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authority Ref"
+        },
+        "budget": {
+          "$ref": "#/$defs/Budget"
+        },
+        "criterion_refs": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "maxItems": 64,
+          "title": "Criterion Refs",
+          "type": "array"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "input_refs": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "maxItems": 64,
+          "title": "Input Refs",
+          "type": "array"
+        },
+        "key": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Key",
+          "type": "string"
+        },
+        "requirement_refs": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "maxItems": 64,
+          "title": "Requirement Refs",
+          "type": "array"
+        },
+        "supersedes_task_id": {
+          "anyOf": [
+            {
+              "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supersedes Task Id"
+        },
+        "task_type": {
+          "enum": [
+            "prepare",
+            "execute",
+            "assess",
+            "decide"
+          ],
+          "title": "Task Type",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "task_type",
+        "title",
+        "budget"
+      ],
+      "title": "PlannedTask",
+      "type": "object"
+    },
+    "RevisionRef": {
+      "additionalProperties": false,
+      "description": "A reference to a specific revision of a record.\n\nMeaning can change between revisions, so a test assessed against\nrequirement revision 2 must not silently satisfy revision 3.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z]+_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "RevisionRef",
+      "type": "object"
+    }
+  },
+  "$id": "forge:contracts/params.plan.apply",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "add_dependencies": {
+      "items": {
+        "$ref": "#/$defs/PlanDependency"
+      },
+      "maxItems": 500,
+      "title": "Add Dependencies",
+      "type": "array"
+    },
+    "add_tasks": {
+      "items": {
+        "$ref": "#/$defs/PlannedTask"
+      },
+      "maxItems": 200,
+      "title": "Add Tasks",
+      "type": "array"
+    },
+    "base_plan_revision": {
+      "minimum": 0,
+      "title": "Base Plan Revision",
+      "type": "integer"
+    },
+    "summary": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "base_plan_revision",
+    "summary"
+  ],
+  "title": "PlanApplyParams",
+  "type": "object"
+}

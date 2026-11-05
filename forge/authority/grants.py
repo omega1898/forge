@@ -239,6 +239,43 @@ class TrustStore:
         assert grant is not None
         return grant
 
+    def approve_source_root(
+        self, project_id: str, label: str, host_path: Path, approver: ActorContext
+    ) -> Path:
+        """Bind a project's source-root label to a host directory (human only)."""
+        if not approver.is_trusted_human:
+            raise ForgeError(
+                ErrorCode.PERMISSION_DENIED,
+                "source roots can only be approved by a human on the trusted local channel",
+            )
+        candidate = Path(host_path)
+        if not candidate.is_absolute():
+            raise ForgeError(ErrorCode.INVALID_REQUEST, "source root must be an absolute path")
+        if candidate.is_symlink() or not candidate.is_dir():
+            raise ForgeError(ErrorCode.INVALID_REQUEST, "source root must be a real directory, not a link")
+        resolved = candidate.resolve(strict=True)
+        too_broad = {Path(resolved.anchor), Path.home().resolve()}
+        if resolved in too_broad:
+            raise ForgeError(
+                ErrorCode.INVALID_REQUEST,
+                "refusing a filesystem root or home directory as a source root; choose the project folder",
+            )
+        with write_transaction(self.conn):
+            self.conn.execute(
+                "INSERT INTO source_roots (project_id, label, host_path, approved_by, approved_at)"
+                " VALUES (?, ?, ?, ?, ?) ON CONFLICT (project_id, label) DO UPDATE SET"
+                " host_path = excluded.host_path, approved_by = excluded.approved_by,"
+                " approved_at = excluded.approved_at",
+                (project_id, label, str(resolved), approver.actor_id, format_timestamp(self._clock.now())),
+            )
+        return resolved
+
+    def source_root(self, project_id: str, label: str) -> Path | None:
+        row = self.conn.execute(
+            "SELECT host_path FROM source_roots WHERE project_id = ? AND label = ?", (project_id, label)
+        ).fetchone()
+        return None if row is None else Path(row[0])
+
     def get(self, grant_id: str) -> Grant | None:
         row = self.conn.execute("SELECT * FROM grants WHERE grant_id = ?", (grant_id,)).fetchone()
         return None if row is None else _grant_from_row(row)

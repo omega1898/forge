@@ -22,6 +22,7 @@ from typing import Any
 
 from forge.contracts import commands, records
 from forge.contracts.errors import ErrorCode, ForgeError, safe_preview
+from forge.reports.summary import ProjectSummary
 
 SCHEMA_MODELS = {
     "command_envelope": commands.CommandEnvelope,
@@ -34,12 +35,40 @@ SCHEMA_MODELS = {
     "params.task.transition": commands.TaskTransitionParams,
     "params.decision.request": commands.DecisionRequestParams,
     "params.decision.record": commands.DecisionRecordParams,
+    "params.workspace.capture": commands.WorkspaceCaptureParams,
+    "params.suite.admit": commands.SuiteAdmitParams,
+    "params.artifact.register": commands.ArtifactRegisterParams,
+    "params.evidence.record_execution": commands.EvidenceRecordExecutionParams,
+    "params.evidence.record_review": commands.EvidenceRecordReviewParams,
+    "params.assessment.record": commands.AssessmentRecordParams,
+    "params.finding.record": commands.FindingRecordParams,
+    "params.plan.apply": commands.PlanApplyParams,
+    "params.task.complete": commands.TaskCompleteParams,
+    "params.job.create": commands.JobCreateParams,
+    "params.job.receipt": commands.JobReceiptParams,
+    "params.job.observe": commands.JobObserveParams,
+    "params.job.retry": commands.JobRetryParams,
+    "params.job.reconciliation_required": commands.JobReconciliationParams,
+    "params.task.cancel": commands.TaskCancelParams,
+    "params.intent.submit": commands.IntentSubmitParams,
+    "params.model.call_record": commands.ModelCallRecordParams,
+    "params.snapshot.record_candidate": commands.SnapshotRecordCandidateParams,
+    "params.proposal.create": commands.ProposalCreateParams,
+    "params.change.record_application": commands.ChangeRecordApplicationParams,
+    "job_spec": __import__("forge.contracts.jobs", fromlist=["JobSpec"]).JobSpec,
     "record.project": records.Project,
     "record.requirement": records.Requirement,
     "record.criterion": records.Criterion,
     "record.task": records.Task,
     "record.decision": records.Decision,
     "record.event": records.EventRecord,
+    "record.artifact": records.Artifact,
+    "record.snapshot": records.Snapshot,
+    "record.evidence": records.Evidence,
+    "record.assessment": records.Assessment,
+    "record.finding": records.Finding,
+    "record.job": records.Job,
+    "report.project_summary": ProjectSummary,
 }
 
 _SCHEMA_DIR = "schemas"

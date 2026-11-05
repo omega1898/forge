@@ -17,6 +17,8 @@ requires-python = ">=3.12"
 dependencies = [
     # Typed validation of every request that crosses a module boundary.
     "pydantic>=2.6,<3",
+    # Ed25519 signatures for offline bundles (FORGE writes no cryptography).
+    "cryptography>=42",
 ]
 
 [project.optional-dependencies]
@@ -28,6 +30,7 @@ dev = [
 ]
 
 [project.scripts]
+forge = "forge.client_cli:main"
 forge-dev = "forge.cli:main"
 
 [tool.setuptools.packages.find]

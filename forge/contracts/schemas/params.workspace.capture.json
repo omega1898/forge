@@ -1,0 +1,25 @@
+{
+  "$id": "forge:contracts/params.workspace.capture",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "dirty_paths": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "title": "Dirty Paths",
+      "type": "array"
+    },
+    "source_root": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Source Root",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_root"
+  ],
+  "title": "WorkspaceCaptureParams",
+  "type": "object"
+}

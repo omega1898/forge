@@ -1,0 +1,45 @@
+{
+  "$id": "forge:contracts/params.proposal.create",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "base_snapshot_id": {
+      "pattern": "^snapshot_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Base Snapshot Id",
+      "type": "string"
+    },
+    "candidate_snapshot_id": {
+      "pattern": "^snapshot_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Candidate Snapshot Id",
+      "type": "string"
+    },
+    "kind": {
+      "default": "implementation",
+      "enum": [
+        "implementation",
+        "test_change"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "task_id": {
+      "anyOf": [
+        {
+          "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Id"
+    }
+  },
+  "required": [
+    "base_snapshot_id",
+    "candidate_snapshot_id"
+  ],
+  "title": "ProposalCreateParams",
+  "type": "object"
+}

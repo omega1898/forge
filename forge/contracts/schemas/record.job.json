@@ -1,0 +1,153 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "forge:contracts/record.job",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "attempt_number": {
+      "minimum": 1,
+      "title": "Attempt Number",
+      "type": "integer"
+    },
+    "cancel_requested_at": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Cancel Requested At"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "effect_class": {
+      "title": "Effect Class",
+      "type": "string"
+    },
+    "execution_status": {
+      "enum": [
+        "queued",
+        "leased",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "lost"
+      ],
+      "title": "Execution Status",
+      "type": "string"
+    },
+    "host_event_seq": {
+      "title": "Host Event Seq",
+      "type": "integer"
+    },
+    "host_id": {
+      "title": "Host Id",
+      "type": "string"
+    },
+    "job_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Job Digest",
+      "type": "string"
+    },
+    "job_id": {
+      "pattern": "^job_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "lease_epoch": {
+      "minimum": 1,
+      "title": "Lease Epoch",
+      "type": "integer"
+    },
+    "outcome": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Outcome"
+    },
+    "project_id": {
+      "pattern": "^project_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "reconciliation": {
+      "anyOf": [
+        {
+          "enum": [
+            "required",
+            "resolved"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Reconciliation"
+    },
+    "record_version": {
+      "title": "Record Version",
+      "type": "integer"
+    },
+    "retry_class": {
+      "title": "Retry Class",
+      "type": "string"
+    },
+    "spec": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Spec",
+      "type": "object"
+    },
+    "task_id": {
+      "pattern": "^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "updated_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_id",
+    "attempt_number",
+    "project_id",
+    "task_id",
+    "host_id",
+    "lease_epoch",
+    "spec",
+    "job_digest",
+    "effect_class",
+    "retry_class",
+    "execution_status",
+    "host_event_seq",
+    "cancel_requested_at",
+    "reconciliation",
+    "outcome",
+    "created_at",
+    "updated_at",
+    "record_version"
+  ],
+  "title": "Job",
+  "type": "object"
+}

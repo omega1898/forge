@@ -29,3 +29,17 @@ jobs:
         run: python -m forge.contracts.schemas
       - name: Test
         run: python -m pytest -q
+      - name: Language toolchains for the COBOL, OCaml, emulator, shell and RE packs (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends gnucobol3 ocaml-nox ocaml-findlib qemu-user-static \
+            gcc-arm-linux-gnueabihf libc6-dev-armhf-cross shellcheck radare2 default-jdk-headless
+      - name: TypeScript compiler for the editor extension tests (Linux)
+        if: runner.os == 'Linux'
+        run: npm install -g typescript@6.0.2
+      - name: Full suite with the isolation backend (Linux, as root)
+        # The isolation backend needs root; without this step every sandboxed
+        # test skips on CI and would prove nothing.
+        if: runner.os == 'Linux'
+        run: sudo "$(command -v python)" -m pytest -q

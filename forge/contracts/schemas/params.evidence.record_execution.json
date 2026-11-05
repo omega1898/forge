@@ -1,0 +1,81 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "forge:contracts/params.evidence.record_execution",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_refs": {
+      "items": {
+        "pattern": "^artifact_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Artifact Refs",
+      "type": "array"
+    },
+    "attempt_number": {
+      "minimum": 1,
+      "title": "Attempt Number",
+      "type": "integer"
+    },
+    "environment_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Environment Digest",
+      "type": "string"
+    },
+    "evaluator_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evaluator Digest"
+    },
+    "job_id": {
+      "pattern": "^job_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "observation": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Observation",
+      "type": "object"
+    },
+    "observation_type": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Observation Type",
+      "type": "string"
+    },
+    "snapshot_id": {
+      "pattern": "^snapshot_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Snapshot Id",
+      "type": "string"
+    },
+    "tool_ref": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Tool Ref",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_id",
+    "attempt_number",
+    "snapshot_id",
+    "tool_ref",
+    "environment_digest",
+    "observation_type",
+    "observation"
+  ],
+  "title": "EvidenceRecordExecutionParams",
+  "type": "object"
+}

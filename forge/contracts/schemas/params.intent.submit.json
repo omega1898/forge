@@ -1,0 +1,38 @@
+{
+  "$id": "forge:contracts/params.intent.submit",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_refs": {
+      "items": {
+        "pattern": "^artifact_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 32,
+      "title": "Artifact Refs",
+      "type": "array"
+    },
+    "mode": {
+      "default": "build",
+      "enum": [
+        "build",
+        "pair",
+        "learn",
+        "review"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "text": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Text",
+      "type": "string"
+    }
+  },
+  "required": [
+    "text"
+  ],
+  "title": "IntentSubmitParams",
+  "type": "object"
+}

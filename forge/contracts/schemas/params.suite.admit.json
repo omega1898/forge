@@ -1,0 +1,22 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "$id": "forge:contracts/params.suite.admit",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "suite": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Suite",
+      "type": "object"
+    }
+  },
+  "required": [
+    "suite"
+  ],
+  "title": "SuiteAdmitParams",
+  "type": "object"
+}

@@ -191,7 +191,10 @@ def test_tasks_cannot_be_declared_complete_by_command(world: World) -> None:
         world.send(
             "task.transition", {"task_id": task_id, "to_status": "completed", "reason": "trust me"}, expected=2
         )
-    assert _error(caught) == ErrorCode.MISSING_CAPABILITY
+    # Saying "it's done" is not evidence: completion goes through task.complete,
+    # where the completion evaluator decides from recorded assessments (F06).
+    assert _error(caught) == ErrorCode.INVALID_REQUEST
+    assert "task.complete" in caught.value.message
 
 
 def test_execute_tasks_cannot_run_without_job_admission(world: World) -> None:
