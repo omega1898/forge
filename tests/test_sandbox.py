@@ -14,7 +14,6 @@ from __future__ import annotations
 import os
 import socket
 import subprocess
-import sys
 import threading
 import time
 from pathlib import Path
@@ -23,6 +22,7 @@ import pytest
 
 from forge.authority.authorize import DEFAULT_LIMITS
 from forge.contracts.errors import ErrorCode, ForgeError
+from forge.assessment.service import interpreter
 from forge.sandbox.base import SandboxSpec, require_capabilities
 from forge.sandbox.linux_ns import LinuxNamespaceBackend
 from forge.sandbox.unavailable import MacosVmBackend, PodmanBackend, WindowsVmBackend
@@ -31,7 +31,7 @@ BACKEND = LinuxNamespaceBackend()
 pytestmark = pytest.mark.skipif(
     not BACKEND.capabilities().available, reason=str(BACKEND.capabilities().unavailable_reason)
 )
-PYTHON = os.path.realpath(sys.executable)
+PYTHON, PYTHON_DIRS = interpreter()  # outside /usr (e.g. a CI tool cache) its tree must be mounted
 LIMITS = DEFAULT_LIMITS.model_copy(update={"wall_ms": 20_000})
 
 
@@ -47,7 +47,8 @@ def job(tmp_path: Path):  # noqa: ANN201
         work = tmp_path / f"job-{len(work_dirs)}"
         work_dirs.append(work)
         spec = SandboxSpec(
-            job_key=key, input_dir=str(input_dir), argv=[PYTHON, "-I", "-c", code], limits=limits, stdin=stdin
+            job_key=key, input_dir=str(input_dir), argv=[PYTHON, "-I", "-c", code], limits=limits, stdin=stdin,
+            toolchain_paths=PYTHON_DIRS,
         )
         return BACKEND.run(spec, work)
 
@@ -296,6 +297,7 @@ def test_cancel_stops_a_running_job(job) -> None:  # noqa: ANN001
 def test_dangerous_environment_is_rejected(job, tmp_path: Path) -> None:  # noqa: ANN001
     spec = SandboxSpec(
         job_key="env", input_dir=str(job.input_dir), argv=[PYTHON, "-c", "1"], limits=LIMITS,
+        toolchain_paths=PYTHON_DIRS,
         env={"LD_PRELOAD": "/scratch/evil.so"},
     )
     with pytest.raises(ForgeError, match="LD_PRELOAD"):

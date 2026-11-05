@@ -151,7 +151,10 @@ class ReWorkflow:
         lines = [line for line in observation.stdout.decode("utf-8", "replace").splitlines() if line.strip()]
         if observation.terminated_by != "exited" or len(lines) < 4:
             raise ForgeError(ErrorCode.INTERNAL_ERROR, f"extraction failed: {observation.stderr[-300:]!r}")
+        # Field names drift between radare2 releases (offset/addr); records missing an address are dropped.
         info, strings, imports, functions = (json.loads(line) for line in lines[:4])
+        functions = [f for f in functions if isinstance(f, dict) and ("offset" in f or "addr" in f)]
+        strings = [s for s in strings if isinstance(s, dict) and ("vaddr" in s or "addr" in s)]
         binary = info.get("bin", {})
         intake = intake.model_copy(update={"architecture": str(binary.get("arch", "")), "bits": int(binary.get("bits", 0)),
                                            "endian": str(binary.get("endian", "")),
@@ -167,9 +170,11 @@ class ReWorkflow:
             uncertainty.append("records were truncated to the extraction bound")
         extraction = {
             "sample": intake.model_dump(),
-            "functions": [{"name": f["name"][:MAX_TEXT], "size": int(f.get("size", 0)), "location": where(f["offset"]),
+            "functions": [{"name": f["name"][:MAX_TEXT], "size": int(f.get("size", 0)),
+                           "location": where(f.get("offset", f.get("addr", -1))),
                            "trust": "untrusted_sample_text"} for f in functions[:MAX_RECORDS]],
-            "strings": [{"text": s["string"][:MAX_TEXT], "section": s.get("section", ""), "location": where(s["vaddr"]),
+            "strings": [{"text": s["string"][:MAX_TEXT], "section": s.get("section", ""),
+                         "location": where(s.get("vaddr", s.get("addr", -1))),
                          "trust": "untrusted_sample_text"} for s in strings[:MAX_RECORDS]],
             "imports": [{"name": i.get("name", "")[:MAX_TEXT], "trust": "untrusted_sample_text"}
                         for i in imports[:MAX_RECORDS]],

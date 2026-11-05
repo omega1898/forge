@@ -49,8 +49,11 @@ PYTHON_PACK = PackDescriptor(
 def admit_python_tools(registry: ToolRegistry) -> list[str]:
     """Admit the host's Python interpreter and ruff (if present), pinned by digest."""
     admitted = []
-    python = Path(os.path.realpath(sys.executable))
-    registry.admit("python", python, version=sys.version.split()[0])
+    from forge.assessment.service import interpreter
+
+    python_path, python_dirs = interpreter()
+    # An interpreter outside /usr (pyenv, a CI tool cache) needs its own tree mounted in the sandbox.
+    registry.admit("python", Path(python_path), version=sys.version.split()[0], toolchain_paths=python_dirs)
     admitted.append("python")
     ruff = shutil.which("ruff")
     if ruff:
