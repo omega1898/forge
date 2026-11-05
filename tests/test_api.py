@@ -56,10 +56,11 @@ def rpc_body(method: str, params: dict | None = None, **extra: object) -> bytes:
 # --------------------------------------------------------------- security --
 
 
+@pytest.mark.skipif(os.name == "nt", reason="file privacy on Windows is an ACL question FORGE does not check yet; "
+                                           "native Windows hosts are not supported")
 def test_connection_file_is_private(running) -> None:  # noqa: ANN001
     path = connection_file(running["root"])
-    if os.name != "nt":
-        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
     os.chmod(path, 0o644)
     with pytest.raises(Exception, match="readable by other users"):
         read_connection(running["root"])
@@ -91,8 +92,14 @@ def test_credentials_in_urls_are_refused(running) -> None:  # noqa: ANN001
 
 
 def test_oversized_body_is_refused(running) -> None:  # noqa: ANN001
-    code, _ = raw(running["launched"], body=b" " * (MAX_BODY_BYTES + 1))
+    # The server refuses from the Content-Length header without reading the body. Depending on
+    # the operating system the client then sees the 413 or a closed connection mid-upload.
+    try:
+        code, _ = raw(running["launched"], body=b" " * (MAX_BODY_BYTES + 1))
+    except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+        code = 413
     assert code == 413
+    assert running["client"].call("project.open", {})["project"]["project_id"] == running["project_id"]
 
 
 def test_unknown_paths_are_not_found(running) -> None:  # noqa: ANN001

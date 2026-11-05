@@ -67,7 +67,8 @@ TOOLCHAINS: dict[str, Toolchain] = {
                        arguments=["-std=c11", "-O1", "-Wall", "-Wextra", "-Werror", "-static", "-o", "{output}"],
                        runner="qemu_arm", tier="emulator"),
 }
-RUNNERS = {"qemu_arm": "qemu-arm-static"}
+# Newer distributions ship the static emulator as plain qemu-arm (package qemu-user).
+RUNNERS = {"qemu_arm": ("qemu-arm-static", "qemu-arm")}
 
 
 def admit_compiled_tools(registry: ToolRegistry) -> list[str]:
@@ -79,8 +80,8 @@ def admit_compiled_tools(registry: ToolRegistry) -> list[str]:
                            toolchain_paths=[path for path in toolchain.config_paths if os.path.exists(path)],
                            side_effect_class="scratch_only")
             admitted.append(toolchain.compiler)
-    for tool_id, program in RUNNERS.items():
-        found = shutil.which(program)
+    for tool_id, programs in RUNNERS.items():
+        found = next((path for program in programs if (path := shutil.which(program))), None)
         if found:
             registry.admit(tool_id, Path(os.path.realpath(found)), version="host")
             admitted.append(tool_id)

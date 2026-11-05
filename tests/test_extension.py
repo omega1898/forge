@@ -39,7 +39,8 @@ def built(tmp_path_factory) -> Path:  # noqa: ANN001
 def test_extension_unit_tests_pass(built: Path) -> None:
     # Compiled tests import "../../package.json" relative to out/test.
     shutil.copy(EXTENSION / "package.json", built.parent / "package.json")
-    done = subprocess.run(["node", "--test", str(built / "test" / "core.test.js")], capture_output=True, text=True,
+    done = subprocess.run(["node", "--test", "--test-reporter=tap", str(built / "test" / "core.test.js")],
+                          capture_output=True, text=True,
                           timeout=120, check=False, cwd=built)
     assert done.returncode == 0, done.stdout[-3000:] + done.stderr[-2000:]
     assert "# fail 0" in done.stdout

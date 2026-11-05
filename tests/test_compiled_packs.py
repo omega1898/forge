@@ -194,8 +194,10 @@ def packet_sources() -> dict[str, str]:
             "tags.h": (base / "tags.h").read_text()}
 
 
-@needs("arm-linux-gnueabihf-gcc", "qemu-arm-static")
+@needs("arm-linux-gnueabihf-gcc")
 def test_emulated_results_are_emulator_evidence_and_never_hardware(rig) -> None:
+    if shutil.which("qemu-arm-static") is None and shutil.which("qemu-arm") is None:
+        pytest.skip("no QEMU ARM user-mode emulator installed")
     build = {"toolchain": "c_arm", "sources": ["main.c", "parser.c", "tags.c"]}
     emulated = rig["criterion"](packet_suite(), build=build)
     snapshot = rig["snapshot"](packet_sources())

@@ -73,7 +73,9 @@ def collect_outputs(
             except (ValueError, UnicodeEncodeError):
                 rejected.append(RejectedEntry(path=rel.encode("utf-8", "replace").decode(), reason="invalid_name"))
                 continue
-            info = entry.stat(follow_symlinks=False)
+            # os.lstat, not DirEntry.stat: on Windows the latter reports inode and
+            # link count as 0, which would defeat the hard-link and swap checks.
+            info = os.lstat(entry.path)
             if stat.S_ISLNK(info.st_mode):
                 rejected.append(RejectedEntry(path=rel, reason="symlink"))
             elif stat.S_ISDIR(info.st_mode):

@@ -27,6 +27,7 @@ from forge.controller.service import Controller
 from forge.hostagent.agent import HostUnreachable, LocalHostAgent
 from forge.jobs.service import JobService
 from forge.record.store import ProjectStore
+from forge.assessment.service import interpreter
 from forge.sandbox.linux_ns import LinuxNamespaceBackend
 from forge.tools.registry import ToolRegistry
 from tests.conftest import BUDGET, command
@@ -76,7 +77,7 @@ class Rig:
         )
         self.tools = ToolRegistry()
         python = os.path.realpath(sys.executable)
-        self.python = self.tools.admit("python", Path(python), version="host")
+        self.python = self.tools.admit("python", Path(python), version="host", toolchain_paths=interpreter()[1])
         self.target = FakeTarget()
         self.policy = HostPolicy(host_id="local", enrolled_projects=[self.project_id],
                                  allowed_actions=["run_registered_tool"], max_limits=DEFAULT_LIMITS,
