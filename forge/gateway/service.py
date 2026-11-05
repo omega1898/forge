@@ -234,6 +234,11 @@ class ModelGateway:
 
     @staticmethod
     def _validate(raw, output_model):  # noqa: ANN001, ANN205
+        if raw.finish_reason and raw.finish_reason.startswith("refusal:"):
+            # The model (and any server-side fallback) declined. Recorded with its stated reason;
+            # never retried with a reworded request.
+            _, category, explanation = (raw.finish_reason.split(":", 2) + ["", ""])[:3]
+            return "refusal", None, [f"the model declined (category: {category}): {explanation}"]
         if not raw.finished:
             return "truncated", None, [f"the reply ended early ({raw.finish_reason}); nothing in it is used"]
         if output_model is None:

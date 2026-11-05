@@ -35,7 +35,7 @@ CallStatus = Literal[
 
 class ModelConfig(StrictModel):
     model_config_id: str
-    provider_type: Literal["fake", "openai_compatible"]
+    provider_type: Literal["fake", "openai_compatible", "anthropic"]
     endpoint: str | None = None
     model_name: str
     weights_digest: Digest | None = None
