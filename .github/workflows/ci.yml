@@ -36,7 +36,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -q
-          for group in "gcc-14" "g++-14" "gnat-14" "gfortran-14" \
+          for group in "gcc-14" "g++-14" "gnat-14" "gfortran-14" "clang-tidy" "cppcheck" \
                        "gnucobol3 gnucobol4 gnucobol" "ocaml-nox ocaml" "ocaml-findlib" \
                        "qemu-user-static qemu-user" "gcc-arm-linux-gnueabihf" "libc6-dev-armhf-cross" \
                        "shellcheck" "radare2" "default-jdk-headless"; do
@@ -53,4 +53,5 @@ jobs:
         # The isolation backend needs root; without this step every sandboxed
         # test skips on CI and would prove nothing.
         if: runner.os == 'Linux'
-        run: sudo "$(command -v python)" -m pytest -q
+        # PATH is passed through so tools installed with the Python environment (ruff) are found as root.
+        run: sudo env "PATH=$PATH" "$(command -v python)" -m pytest -q

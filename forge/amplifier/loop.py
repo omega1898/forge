@@ -5,7 +5,9 @@ Each turn the model returns one AgentProposal. The loop:
 - `observe`: runs a registered *read-only* tool against the snapshot
   (read_file, search_code, list_files) and appends a bounded observation;
 - `propose_patch`: applies the patch strictly to the base snapshot, builds a
-  candidate, assesses it; a pass becomes a reviewable proposal;
+  candidate, assesses it; a pass becomes a reviewable proposal, unless the
+  optional quality gate finds new coding-standard violations, in which case
+  the model gets one repair brief per violation and tries again;
 - `needs_user`: stops and asks;
 - `complete`: stops with a suggestion; the completion evaluator decides.
 
@@ -48,10 +50,13 @@ class AssistReport:
 
 class TaskAssistant:
     def __init__(self, controller, gateway, model_config_id: str, index, assessment, *,  # noqa: ANN001
-                 observe_turns: int = 8, max_candidates: int = 2) -> None:
+                 observe_turns: int = 8, max_candidates: int = 2, quality_gate=None) -> None:  # noqa: ANN001
         self.controller, self.gateway, self.model_config_id = controller, gateway, model_config_id
         self.index, self.assessment = index, assessment
         self.observe_turns, self.max_candidates = observe_turns, max_candidates
+        # forge.quality.guard.QualityGate: a candidate that passes its tests must also add no blocking
+        # coding-standard finding; its repair briefs go back to the model as the next turn's failures.
+        self.quality_gate = quality_gate
 
     def _files(self, snapshot_id: str) -> dict[str, Any]:
         snapshot = self.controller.store.snapshot(snapshot_id)
@@ -158,6 +163,12 @@ class TaskAssistant:
         candidate = create_candidate(self.controller, base_snapshot_id, new_files, deletions=tuple(deletions))
         report.candidates.append(candidate["snapshot_id"])
         outcome = self.assessment.assess_black_box(criterion_id, candidate["snapshot_id"])
+        if outcome["result"] == "pass" and self.quality_gate is not None:
+            gate = self.quality_gate.review(base_snapshot_id, candidate["snapshot_id"])
+            if not gate.passed:
+                report.observations.append(f"quality gate rejected the candidate: {len(gate.new)} new "
+                                           "coding-standard violation(s)" if gate.new else gate.feedback[0][:300])
+                return gate.feedback
         if outcome["result"] == "pass":
             created = self.controller.apply_command(
                 {"schema_version": "1.0", "method": "proposal.create",

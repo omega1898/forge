@@ -91,6 +91,9 @@ def static_analysis(store, snapshot_id: str, options: dict[str, Any]) -> CheckRe
         return CheckResult("static_analysis", "not_run", "no static analysis has been recorded for this snapshot")
     if any(run.get("status") == "error" for run in runs[-1:]):
         return CheckResult("static_analysis", "not_met", "the latest analyzer run failed", [runs[-1]["evidence_id"]])
+    if runs[-1].get("missing_tools"):
+        return CheckResult("static_analysis", "not_run", "the chosen coding standards need tools that are not "
+                           f"installed: {', '.join(runs[-1]['missing_tools'])}", [runs[-1]["evidence_id"]])
     blocking = [f for f in store.findings(snapshot_id=snapshot_id)
                 if f.status == "open" and f.severity in ("critical", "high")]
     if blocking:
