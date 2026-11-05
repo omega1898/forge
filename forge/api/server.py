@@ -62,9 +62,12 @@ class ApiServer:
         tokens: dict[str, ActorContext],
         port: int = 0,
         job_service=None,  # noqa: ANN001
+        work_root=None,  # noqa: ANN001 - Path where `forge check` builds and runs (None: checks unavailable)
     ) -> None:
         self.controller = controller
         self.job_service = job_service
+        self.work_root = work_root
+        self._check_service = None
         self._tokens = dict(tokens)
         self.lock = threading.RLock()
         self.session_id = new_id("request")
@@ -97,6 +100,8 @@ class ApiServer:
             "compliance.attest": self._compliance_attest,
             "compliance.import_catalog": self._compliance_import_catalog,
             "compliance.import_vulnerabilities": self._compliance_import_vulnerabilities,
+            # forge check: builds, tests, coverage and analysis in the sandbox (forge.check.service).
+            "check.run": self._check_run,
         }
 
     @property
@@ -293,6 +298,21 @@ class ApiServer:
         if not isinstance(value, dict):
             raise ForgeError(ErrorCode.INVALID_REQUEST, "options must be an object")
         return {str(k): str(v) for k, v in value.items()}
+
+    def _checks(self):  # noqa: ANN202 - CheckService
+        if self.work_root is None:
+            raise ForgeError(ErrorCode.RESOURCE_UNAVAILABLE, "this controller was started without a work directory")
+        if self._check_service is None:
+            from forge.check.service import CheckService
+            from forge.sandbox.linux_ns import LinuxNamespaceBackend
+
+            self._check_service = CheckService(self.controller, LinuxNamespaceBackend(), self.work_root)
+        return self._check_service
+
+    def _check_run(self, actor: ActorContext, params: dict[str, Any]) -> dict[str, Any]:
+        step = self._text(params, "step", limit=32) or "all"
+        return self._checks().run(actor, step, self._text(params, "snapshot_id", limit=100),
+                                  accept=bool(params.get("accept_tests", False)))
 
     def _compliance_set_domain(self, actor: ActorContext, params: dict[str, Any]) -> dict[str, Any]:
         return self._compliance().set_domain(actor, self._text(params, "domain", required=True, limit=64),

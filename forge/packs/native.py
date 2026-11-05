@@ -219,7 +219,7 @@ class Diagnostic(StrictModel):
 
 _DIAGNOSTIC = re.compile(
     r"^(?P<path>[^:\n]+):(?P<line>\d+):(?P<col>\d+): (?P<severity>fatal error|error|warning|note): "
-    r"(?P<message>.*?)(?: \[(?P<flag>-W[^\]]+)\])?$"
+    r"(?P<message>.*?)(?: \[(?P<flag>-(?:W|gnatw)[^\]]+)\])?$"
 )
 
 

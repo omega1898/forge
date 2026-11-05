@@ -1,0 +1,27 @@
+[build]
+toolchain = "fortran"
+sources = ["limiter.f90"]
+
+[[tests]]
+id = "inside"
+args = ["5", "1", "10"]
+stdout = "IN\n"
+verifies = ["LIM-1"]
+
+[[tests]]
+id = "below"
+args = ["0", "1", "10"]
+stdout = "OUT\n"
+verifies = ["LIM-1"]
+
+[[tests]]
+id = "above"
+args = ["11", "1", "10"]
+stdout = "OUT\n"
+verifies = ["LIM-1"]
+
+[[tests]]
+id = "wrong_count"
+args = ["5"]
+exit_code = 2
+verifies = ["LIM-2"]

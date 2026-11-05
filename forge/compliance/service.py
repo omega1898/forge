@@ -205,7 +205,17 @@ class ComplianceService:
             if requirements_path not in files:
                 raise ForgeError(ErrorCode.INVALID_REQUEST, f"{requirements_path} is not in {snapshot_id}")
             requirements = producers.read_requirements(files[requirements_path])
-        trace = producers.trace({p: d for p, d in files.items() if p != requirements_path}, requirements)
+        declared, project_note = {}, None
+        if "forge.toml" in files:
+            from forge.check.project import parse_project
+
+            try:
+                declared = parse_project(files["forge.toml"]).verifies()
+            except ForgeError as error:
+                project_note = f"forge.toml was not used for the trace: {error.message}"[:500]
+        trace = producers.trace({p: d for p, d in files.items() if p not in (requirements_path, "forge.toml")},
+                                requirements, verified_by_tests=declared)
+        trace["project_file_note"] = project_note
         recorded["traceability"] = self._record(snapshot_id, "traceability",
                                                 {**trace, "requirements_file": requirements_path})
         database = self.vulnerability_database()

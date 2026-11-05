@@ -294,10 +294,13 @@ def read_requirements(data: bytes) -> list[str]:
     return ids
 
 
-def trace(files: dict[str, bytes], requirements: list[str] | None = None) -> dict[str, Any]:
-    """Which requirements are implemented by code and verified by tests, and where the trace breaks."""
+def trace(files: dict[str, bytes], requirements: list[str] | None = None, *,
+          verified_by_tests: dict[str, list[str]] | None = None) -> dict[str, Any]:
+    """Which requirements are implemented by code and verified by tests, and where the trace breaks.
+
+    `verified_by_tests` adds test cases that declare what they verify (forge.toml's `verifies`)."""
     implemented: dict[str, list[str]] = {}
-    verified: dict[str, list[str]] = {}
+    verified: dict[str, list[str]] = {k: list(v) for k, v in (verified_by_tests or {}).items()}
     untraced: list[str] = []
     for path in sorted(files):
         data = files[path]

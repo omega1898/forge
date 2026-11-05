@@ -1,0 +1,21 @@
+[build]
+toolchain = "c"
+sources = ["band.c"]
+
+[[tests]]
+id = "inside"
+args = ["5", "1", "10"]
+stdout = "IN\n"
+verifies = ["BAND-1"]
+
+[[tests]]
+id = "below"
+args = ["0", "1", "10"]
+stdout = "OUT\n"
+verifies = ["BAND-1"]
+
+[[tests]]
+id = "wrong_count"
+args = []
+exit_code = 2
+verifies = ["BAND-2"]

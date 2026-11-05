@@ -215,10 +215,20 @@ def structural_coverage(store, snapshot_id: str, options: dict[str, Any]) -> Che
     required = float(options.get("minimum_percent", 100.0))
     if not runs:
         return CheckResult("structural_coverage", "not_run", f"no {criterion} coverage measured for this snapshot")
-    measured = float(runs[-1].get(f"{criterion}_percent", -1))
+    latest = runs[-1]
+    if latest.get("integrity_problems"):
+        return CheckResult("structural_coverage", "not_met", "the coverage counters cannot be trusted: "
+                           f"{'; '.join(latest['integrity_problems'][:3])}", [latest["evidence_id"]])
+    if f"{criterion}_percent" not in latest:
+        return CheckResult("structural_coverage", "not_met", f"{criterion} coverage was not measured",
+                           [latest["evidence_id"]])
+    measured = float(latest[f"{criterion}_percent"])
     status: Status = "met" if measured >= required else "not_met"
-    return CheckResult("structural_coverage", status, f"{criterion} coverage {measured:.1f}% (required {required:.1f}%)",
-                       [runs[-1]["evidence_id"]])
+    detail = f"{criterion} coverage {measured:.1f}% (required {required:.1f}%)"
+    if status == "not_met" and criterion == "mcdc" and latest.get("uncovered_conditions"):
+        shown = ", ".join(dict.fromkeys(f"{c['path']}:{c['line']}" for c in latest["uncovered_conditions"]))[:300]
+        detail += f"; uncovered conditions at {shown}"
+    return CheckResult("structural_coverage", status, detail, [latest["evidence_id"]])
 
 
 def requirements_traceability(store, snapshot_id: str, options: dict[str, Any]) -> CheckResult:  # noqa: ANN001
@@ -228,7 +238,7 @@ def requirements_traceability(store, snapshot_id: str, options: dict[str, Any]) 
     latest = runs[-1]
     if not latest.get("requirements"):
         return CheckResult("requirements_traceability", "not_run", "no requirements were found: add a requirements "
-                           "list, or tag code with 'Implements: ID' and tests with 'Verifies: ID'",
+                           "list, or tag code with 'Implements: ID' and tests with 'Verifies: ID' or forge.toml `verifies`",
                            [latest["evidence_id"]])
     gaps = latest.get("gaps", [])
     if gaps:
@@ -287,12 +297,12 @@ def platform_evidence(store, snapshot_id: str, options: dict[str, Any]) -> Check
 
 CHECKS: dict[str, Check] = {check.check_id: check for check in (
     Check("tests_pass", "Tests pass on the exact snapshot", "every assessed test criterion passes",
-          "assess a test criterion on this snapshot (any language pack)", tests_pass),
+          "forge check tests", tests_pass),
     Check("static_analysis", "Static code analysis", "the snapshot was analyzed and no high/critical findings are open",
-          "run an analyzer on this snapshot (Python pack: ruff)", static_analysis),
+          "forge check analyze", static_analysis),
     Check("dynamic_analysis", "Dynamic code analysis", "the code ran in isolation against protected tests, under "
-          "sanitizers for native code", "run the protected tests on this snapshot (native packs add sanitizers)", dynamic_analysis),
-    Check("flaw_remediation", "Flaw remediation", "no high or critical flaw is open", "run an analyzer or sanitizers, then fix or resolve high and critical findings",
+          "sanitizers for native code", "forge check tests (C and C++ run under sanitizers)", dynamic_analysis),
+    Check("flaw_remediation", "Flaw remediation", "no high or critical flaw is open", "forge check analyze, then fix or resolve high and critical findings",
           flaw_remediation),
     Check("change_control", "Configuration change control", "every applied change carries an approval bound to its "
           "exact digest", "apply changes through FORGE proposals approved for their exact digest", change_control),
@@ -305,11 +315,11 @@ CHECKS: dict[str, Check] = {check.check_id: check for check in (
     Check("audit_integrity", "Audit record integrity", "the append-only event log replays to the live record",
           "(always available)", audit_integrity),
     Check("release_integrity", "Release integrity", "build outputs are stored and identified by cryptographic digest",
-          "build this snapshot with a language pack", release_integrity),
+          "forge check tests (it builds the program)", release_integrity),
     Check("structural_coverage", "Structural coverage", "the required structural coverage (for example MC/DC) is met",
-          "measure coverage on this snapshot (the avionics pack adds MC/DC)", structural_coverage),
+          "forge check coverage", structural_coverage),
     Check("requirements_traceability", "Requirements traceability", "requirements trace to code and tests with no gaps",
-          "tag code 'Implements: ID' and tests 'Verifies: ID', then forge comply check",
+          "tag code 'Implements: ID' and list `verifies` on forge.toml tests, then forge check",
           requirements_traceability),
     Check("vulnerability_scan", "Known-vulnerability scan", "components were checked against a vulnerability database",
           "forge comply import-vulns, then forge comply check", vulnerability_scan),

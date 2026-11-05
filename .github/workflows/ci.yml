@@ -29,13 +29,15 @@ jobs:
         run: python -m forge.contracts.schemas
       - name: Test
         run: python -m pytest -q
-      - name: Language toolchains for the COBOL, OCaml, emulator, shell and RE packs (Linux)
+      - name: Language toolchains for the Ada, Fortran, COBOL, OCaml, emulator, shell and RE packs (Linux)
         # Package names differ between Ubuntu releases; try each alternative and report
         # anything missing. Tests that need a missing tool skip with that reason.
+        # GCC 14 is needed for MC/DC (-fcondition-coverage) and its matching gcov-14.
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -q
-          for group in "gnucobol3 gnucobol4 gnucobol" "ocaml-nox ocaml" "ocaml-findlib" \
+          for group in "gcc-14" "g++-14" "gnat-14" "gfortran-14" \
+                       "gnucobol3 gnucobol4 gnucobol" "ocaml-nox ocaml" "ocaml-findlib" \
                        "qemu-user-static qemu-user" "gcc-arm-linux-gnueabihf" "libc6-dev-armhf-cross" \
                        "shellcheck" "radare2" "default-jdk-headless"; do
             done_group=no

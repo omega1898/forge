@@ -1,0 +1,56 @@
+# Stall warning: how FORGE builds and tests it.
+#   HLR-1: warn when angle of attack exceeds 15 degrees below 120 knots.
+#   HLR-2: with flaps extended, warn above 12 degrees at any speed.
+#   HLR-3: malformed input exits with code 2.
+
+[build]
+toolchain = "ada"
+sources = ["main.adb"]
+
+[[tests]]
+id = "high_aoa_slow"
+args = ["20", "100", "0"]
+stdout = "WARN\n"
+verifies = ["HLR-1"]
+
+[[tests]]
+id = "high_aoa_fast"
+args = ["20", "130", "0"]
+stdout = "OK\n"
+verifies = ["HLR-1"]
+
+[[tests]]
+id = "low_aoa_slow"
+args = ["10", "100", "0"]
+stdout = "OK\n"
+verifies = ["HLR-1"]
+
+[[tests]]
+id = "flaps_moderate_aoa"
+args = ["13", "130", "1"]
+stdout = "WARN\n"
+verifies = ["HLR-2"]
+
+[[tests]]
+id = "flaps_low_aoa"
+args = ["10", "100", "1"]
+stdout = "OK\n"
+verifies = ["HLR-2"]
+
+[[tests]]
+id = "missing_argument"
+args = ["20"]
+exit_code = 2
+verifies = ["HLR-3"]
+
+[[tests]]
+id = "not_a_number"
+args = ["x", "100", "0"]
+exit_code = 2
+verifies = ["HLR-3"]
+
+[[tests]]
+id = "bad_flag"
+args = ["20", "100", "2"]
+exit_code = 2
+verifies = ["HLR-3"]
