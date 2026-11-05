@@ -1,0 +1,499 @@
+{
+ "catalog_id": "nist-800-218",
+ "title": "Electronic (OSCAL) Version of Secure Software Development Framework (SSDF): Recommendations for Mitigating the Risk of Software Vulnerabilities",
+ "version": "1.0.0",
+ "last_modified": "2026-10-22T11:30:00.00000-00:00",
+ "source_url": "https://raw.githubusercontent.com/usnistgov/oscal-content/main/nist.gov/SP800-218/ver1/json/NIST_SP800-218_ver1_catalog.json",
+ "source_sha256": "sha256:fb864f27ccfe2c501737455180db91d8c05285a2ebb3fe1bdf1e193b06081634",
+ "license": "Public domain: work of the US Government (NIST). Retrieved from NIST's official oscal-content repository.",
+ "controls": [
+  {
+   "control_id": "PO.1",
+   "label": "PO.1",
+   "title": "Define Security Requirements for Software Development",
+   "group": "Prepare the Organization",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.1.1",
+   "label": "PO.1.1",
+   "title": "PO.1.1",
+   "group": "Prepare the Organization",
+   "parent": "PO.1",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.1.2",
+   "label": "PO.1.2",
+   "title": "PO.1.2",
+   "group": "Prepare the Organization",
+   "parent": "PO.1",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.1.3",
+   "label": "PO.1.3",
+   "title": "PO.1.3",
+   "group": "Prepare the Organization",
+   "parent": "PO.1",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.2",
+   "label": "PO.2",
+   "title": "Implement Roles and Responsibilities",
+   "group": "Prepare the Organization",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.2.1",
+   "label": "PO.2.1",
+   "title": "PO.2.1",
+   "group": "Prepare the Organization",
+   "parent": "PO.2",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.2.2",
+   "label": "PO.2.2",
+   "title": "PO.2.2",
+   "group": "Prepare the Organization",
+   "parent": "PO.2",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.2.3",
+   "label": "PO.2.3",
+   "title": "PO.2.3",
+   "group": "Prepare the Organization",
+   "parent": "PO.2",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.3",
+   "label": "PO.3",
+   "title": "Implement Supporting Toolchains",
+   "group": "Prepare the Organization",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.3.1",
+   "label": "PO.3.1",
+   "title": "PO.3.1",
+   "group": "Prepare the Organization",
+   "parent": "PO.3",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.3.2",
+   "label": "PO.3.2",
+   "title": "PO.3.2",
+   "group": "Prepare the Organization",
+   "parent": "PO.3",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.3.3",
+   "label": "PO.3.3",
+   "title": "PO.3.3",
+   "group": "Prepare the Organization",
+   "parent": "PO.3",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.4",
+   "label": "PO.4",
+   "title": "Define and Use Criteria for Software Security Checks",
+   "group": "Prepare the Organization",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.4.1",
+   "label": "PO.4.1",
+   "title": "PO.4.1",
+   "group": "Prepare the Organization",
+   "parent": "PO.4",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.4.2",
+   "label": "PO.4.2",
+   "title": "PO.4.2",
+   "group": "Prepare the Organization",
+   "parent": "PO.4",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.5",
+   "label": "PO.5",
+   "title": "Implement and Maintain Secure Environments for Software Development",
+   "group": "Prepare the Organization",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.5.1",
+   "label": "PO.5.1",
+   "title": "PO.5.1",
+   "group": "Prepare the Organization",
+   "parent": "PO.5",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PO.5.2",
+   "label": "PO.5.2",
+   "title": "PO.5.2",
+   "group": "Prepare the Organization",
+   "parent": "PO.5",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PS.1",
+   "label": "PS.1",
+   "title": "Protect All Forms of Code from Unauthorized Access and Tampering",
+   "group": "Protect Software",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PS.1.1",
+   "label": "PS.1.1",
+   "title": "PS.1.1",
+   "group": "Protect Software",
+   "parent": "PS.1",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PS.2",
+   "label": "PS.2",
+   "title": "Provide a Mechanism for Verifying Software Release Integrity",
+   "group": "Protect Software",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PS.2.1",
+   "label": "PS.2.1",
+   "title": "PS.2.1",
+   "group": "Protect Software",
+   "parent": "PS.2",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PS.3",
+   "label": "PS.3",
+   "title": "Archive and Protect Each Software Release",
+   "group": "Protect Software",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PS.3.1",
+   "label": "PS.3.1",
+   "title": "PS.3.1",
+   "group": "Protect Software",
+   "parent": "PS.3",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PS.3.2",
+   "label": "PS.3.2",
+   "title": "PS.3.2",
+   "group": "Protect Software",
+   "parent": "PS.3",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.1",
+   "label": "PW.1",
+   "title": "Design Software to Meet Security Requirements and Mitigate Security Risks",
+   "group": "Produce Well-Secured Software",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.1.1",
+   "label": "PW.1.1",
+   "title": "PW.1.1",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.1",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.1.2",
+   "label": "PW.1.2",
+   "title": "PW.1.2",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.1",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.1.3",
+   "label": "PW.1.3",
+   "title": "PW.1.3",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.1",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.2",
+   "label": "PW.2",
+   "title": "Review the Software Design to Verify Compliance with Security Requirements and Risk Information",
+   "group": "Produce Well-Secured Software",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.2.1",
+   "label": "PW.2.1",
+   "title": "PW.2.1",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.2",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.4",
+   "label": "PW.4",
+   "title": "Reuse Existing, Well-Secured Software When Feasible Instead of Duplicating Functionality",
+   "group": "Produce Well-Secured Software",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.4.1",
+   "label": "PW.4.1",
+   "title": "PW.4.1",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.4",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.4.2",
+   "label": "PW.4.2",
+   "title": "PW.4.2",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.4",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.4.4",
+   "label": "PW.4.4",
+   "title": "PW.4.4",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.4",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.5",
+   "label": "PW.5",
+   "title": "Create Source Code by Adhering to Secure Coding Practices",
+   "group": "Produce Well-Secured Software",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.5.1",
+   "label": "PW.5.1",
+   "title": "PW.5.1",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.5",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.6",
+   "label": "PW.6",
+   "title": "Configure the Compilation, Interpreter, and Build Processes to Improve Executable Security",
+   "group": "Produce Well-Secured Software",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.6.1",
+   "label": "PW.6.1",
+   "title": "PW.6.1",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.6",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.6.2",
+   "label": "PW.6.2",
+   "title": "PW.6.2",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.6",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.7",
+   "label": "PW.7",
+   "title": "Review and/or Analyze Human-Readable Code to Identify Vulnerabilities and Verify Compliance with Security Requirements",
+   "group": "Produce Well-Secured Software",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.7.1",
+   "label": "PW.7.1",
+   "title": "PW.7.1",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.7",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.7.2",
+   "label": "PW.7.2",
+   "title": "PW.7.2",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.7",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.8",
+   "label": "PW.8",
+   "title": "Test Executable Code to Identify Vulnerabilities and Verify Compliance with Security Requirements",
+   "group": "Produce Well-Secured Software",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.8.1",
+   "label": "PW.8.1",
+   "title": "PW.8.1",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.8",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.8.2",
+   "label": "PW.8.2",
+   "title": "PW.8.2",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.8",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.9",
+   "label": "PW.9",
+   "title": "Configure Software to Have Secure Settings by Default",
+   "group": "Produce Well-Secured Software",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.9.1",
+   "label": "PW.9.1",
+   "title": "PW.9.1",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.9",
+   "withdrawn": false
+  },
+  {
+   "control_id": "PW.9.2",
+   "label": "PW.9.2",
+   "title": "PW.9.2",
+   "group": "Produce Well-Secured Software",
+   "parent": "PW.9",
+   "withdrawn": false
+  },
+  {
+   "control_id": "RV.1",
+   "label": "RV.1",
+   "title": "Identify and Confirm Vulnerabilities on an Ongoing Basis",
+   "group": "Respond to Vulnerabilities",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "RV.1.1",
+   "label": "RV.1.1",
+   "title": "RV.1.1",
+   "group": "Respond to Vulnerabilities",
+   "parent": "RV.1",
+   "withdrawn": false
+  },
+  {
+   "control_id": "RV.1.2",
+   "label": "RV.1.2",
+   "title": "RV.1.2",
+   "group": "Respond to Vulnerabilities",
+   "parent": "RV.1",
+   "withdrawn": false
+  },
+  {
+   "control_id": "RV.1.3",
+   "label": "RV.1.3",
+   "title": "RV.1.3",
+   "group": "Respond to Vulnerabilities",
+   "parent": "RV.1",
+   "withdrawn": false
+  },
+  {
+   "control_id": "RV.2",
+   "label": "RV.2",
+   "title": "Assess, Prioritize, and Remediate Vulnerabilities",
+   "group": "Respond to Vulnerabilities",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "RV.2.1",
+   "label": "RV.2.1",
+   "title": "RV.2.1",
+   "group": "Respond to Vulnerabilities",
+   "parent": "RV.2",
+   "withdrawn": false
+  },
+  {
+   "control_id": "RV.2.2",
+   "label": "RV.2.2",
+   "title": "RV.2.2",
+   "group": "Respond to Vulnerabilities",
+   "parent": "RV.2",
+   "withdrawn": false
+  },
+  {
+   "control_id": "RV.3",
+   "label": "RV.3",
+   "title": "Analyze Vulnerabilities to Identify Their Root Causes",
+   "group": "Respond to Vulnerabilities",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "RV.3.1",
+   "label": "RV.3.1",
+   "title": "RV.3.1",
+   "group": "Respond to Vulnerabilities",
+   "parent": "RV.3",
+   "withdrawn": false
+  },
+  {
+   "control_id": "RV.3.2",
+   "label": "RV.3.2",
+   "title": "RV.3.2",
+   "group": "Respond to Vulnerabilities",
+   "parent": "RV.3",
+   "withdrawn": false
+  },
+  {
+   "control_id": "RV.3.3",
+   "label": "RV.3.3",
+   "title": "RV.3.3",
+   "group": "Respond to Vulnerabilities",
+   "parent": "RV.3",
+   "withdrawn": false
+  },
+  {
+   "control_id": "RV.3.4",
+   "label": "RV.3.4",
+   "title": "RV.3.4",
+   "group": "Respond to Vulnerabilities",
+   "parent": "RV.3",
+   "withdrawn": false
+  }
+ ]
+}

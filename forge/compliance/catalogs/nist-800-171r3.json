@@ -1,0 +1,1051 @@
+{
+ "catalog_id": "nist-800-171r3",
+ "title": "Electronic (OSCAL) Version of Protecting Controlled Unclassified Information in Nonfederal Systems and Organizations",
+ "version": "1.1.0",
+ "last_modified": "2026-10-22T11:30:00.00000-00:00",
+ "source_url": "https://raw.githubusercontent.com/usnistgov/oscal-content/main/nist.gov/SP800-171/rev3/json/NIST_SP800-171_rev3_catalog.json",
+ "source_sha256": "sha256:fd68bad4c1fee98dd1b2511884b585fb1f14265d4c5693d0492a25dd66e73dde",
+ "license": "Public domain: work of the US Government (NIST). Retrieved from NIST's official oscal-content repository.",
+ "controls": [
+  {
+   "control_id": "SP_800_171_03.01.01",
+   "label": "03.01.01",
+   "title": "Account Management",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.02",
+   "label": "03.01.02",
+   "title": "Access Enforcement",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.03",
+   "label": "03.01.03",
+   "title": "Information Flow Enforcement",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.04",
+   "label": "03.01.04",
+   "title": "Separation of Duties",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.05",
+   "label": "03.01.05",
+   "title": "Least Privilege",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.06",
+   "label": "03.01.06",
+   "title": "Least Privilege – Privileged Accounts",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.07",
+   "label": "03.01.07",
+   "title": "Least Privilege – Privileged Functions",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.08",
+   "label": "03.01.08",
+   "title": "Unsuccessful Logon Attempts",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.09",
+   "label": "03.01.09",
+   "title": "System Use Notification",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.10",
+   "label": "03.01.10",
+   "title": "Device Lock",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.11",
+   "label": "03.01.11",
+   "title": "Session Termination",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.12",
+   "label": "03.01.12",
+   "title": "Remote Access",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.13",
+   "label": "SP_800_171_03.01.13",
+   "title": "03.01.13",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.01.14",
+   "label": "SP_800_171_03.01.14",
+   "title": "03.01.14",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.01.15",
+   "label": "SP_800_171_03.01.15",
+   "title": "03.01.15",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.01.16",
+   "label": "03.01.16",
+   "title": "Wireless Access",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.17",
+   "label": "SP_800_171_03.01.17",
+   "title": "03.01.17",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.01.18",
+   "label": "03.01.18",
+   "title": "Access Control for Mobile Devices",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.19",
+   "label": "SP_800_171_03.01.19",
+   "title": "03.01.19",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.01.20",
+   "label": "03.01.20",
+   "title": "Use of External Systems",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.01.21",
+   "label": "SP_800_171_03.01.21",
+   "title": "03.01.21",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.01.22",
+   "label": "03.01.22",
+   "title": "Publicly Accessible Content",
+   "group": "Access Control",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.02.01",
+   "label": "03.02.01",
+   "title": "Literacy Training and Awareness",
+   "group": "Awareness and Training",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.02.02",
+   "label": "03.02.02",
+   "title": "Role-Based Training",
+   "group": "Awareness and Training",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.02.03",
+   "label": "SP_800_171_03.02.03",
+   "title": "03.02.03",
+   "group": "Awareness and Training",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.03.01",
+   "label": "03.03.01",
+   "title": "Event Logging",
+   "group": "Audit and Accountability",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.03.02",
+   "label": "03.03.02",
+   "title": "Audit Record Content",
+   "group": "Audit and Accountability",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.03.03",
+   "label": "03.03.03",
+   "title": "Audit Record Generation",
+   "group": "Audit and Accountability",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.03.04",
+   "label": "03.03.04",
+   "title": "Response to Audit Logging Process Failures",
+   "group": "Audit and Accountability",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.03.05",
+   "label": "03.03.05",
+   "title": "Audit Record Review, Analysis, and Reporting",
+   "group": "Audit and Accountability",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.03.06",
+   "label": "03.03.06",
+   "title": "Audit Record Reduction and Report Generation",
+   "group": "Audit and Accountability",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.03.07",
+   "label": "03.03.07",
+   "title": "Time Stamps",
+   "group": "Audit and Accountability",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.03.08",
+   "label": "03.03.08",
+   "title": "Protection of Audit Information",
+   "group": "Audit and Accountability",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.03.09",
+   "label": "SP_800_171_03.03.09",
+   "title": "03.03.09",
+   "group": "Audit and Accountability",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.04.01",
+   "label": "03.04.01",
+   "title": "Baseline Configuration",
+   "group": "Configuration Management",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.04.02",
+   "label": "03.04.02",
+   "title": "Configuration Settings",
+   "group": "Configuration Management",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.04.03",
+   "label": "03.04.03",
+   "title": "Configuration Change Control",
+   "group": "Configuration Management",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.04.04",
+   "label": "03.04.04",
+   "title": "Impact Analyses",
+   "group": "Configuration Management",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.04.05",
+   "label": "03.04.05",
+   "title": "Access Restrictions for Change",
+   "group": "Configuration Management",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.04.06",
+   "label": "03.04.06",
+   "title": "Least Functionality",
+   "group": "Configuration Management",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.04.07",
+   "label": "SP_800_171_03.04.07",
+   "title": "03.04.07",
+   "group": "Configuration Management",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.04.08",
+   "label": "03.04.08",
+   "title": "Authorized Software – Allow by Exception",
+   "group": "Configuration Management",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.04.09",
+   "label": "SP_800_171_03.04.09",
+   "title": "03.04.09",
+   "group": "Configuration Management",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.04.10",
+   "label": "03.04.10",
+   "title": "System Component Inventory",
+   "group": "Configuration Management",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.04.11",
+   "label": "03.04.11",
+   "title": "Information Location",
+   "group": "Configuration Management",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.04.12",
+   "label": "03.04.12",
+   "title": "System and Component Configuration for High-Risk Areas",
+   "group": "Configuration Management",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.05.01",
+   "label": "03.05.01",
+   "title": "User Identification and Authentication",
+   "group": "Identification and Authentication",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.05.02",
+   "label": "03.05.02",
+   "title": "Device Identification and Authentication",
+   "group": "Identification and Authentication",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.05.03",
+   "label": "03.05.03",
+   "title": "Multi-Factor Authentication",
+   "group": "Identification and Authentication",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.05.04",
+   "label": "03.05.04",
+   "title": "Replay-Resistant Authentication",
+   "group": "Identification and Authentication",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.05.05",
+   "label": "03.05.05",
+   "title": "Identifier Management",
+   "group": "Identification and Authentication",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.05.06",
+   "label": "SP_800_171_03.05.06",
+   "title": "03.05.06",
+   "group": "Identification and Authentication",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.05.07",
+   "label": "03.05.07",
+   "title": "Password Management",
+   "group": "Identification and Authentication",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.05.08",
+   "label": "SP_800_171_03.05.08",
+   "title": "03.05.08",
+   "group": "Identification and Authentication",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.05.09",
+   "label": "SP_800_171_03.05.09",
+   "title": "03.05.09",
+   "group": "Identification and Authentication",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.05.10",
+   "label": "SP_800_171_03.05.10",
+   "title": "03.05.10",
+   "group": "Identification and Authentication",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.05.11",
+   "label": "03.05.11",
+   "title": "Authentication Feedback",
+   "group": "Identification and Authentication",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.05.12",
+   "label": "03.05.12",
+   "title": "Authenticator Management",
+   "group": "Identification and Authentication",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.06.01",
+   "label": "03.06.01",
+   "title": "Incident Handling",
+   "group": "Incident Response",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.06.02",
+   "label": "03.06.02",
+   "title": "Incident Monitoring, Reporting, and Response Assistance",
+   "group": "Incident Response",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.06.03",
+   "label": "03.06.03",
+   "title": "Incident Response Testing",
+   "group": "Incident Response",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.06.04",
+   "label": "03.06.04",
+   "title": "Incident Response Training",
+   "group": "Incident Response",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.06.05",
+   "label": "03.06.05",
+   "title": "Incident Response Plan",
+   "group": "Incident Response",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.07.01",
+   "label": "SP_800_171_03.07.01",
+   "title": "03.07.01",
+   "group": "Maintenance",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.07.02",
+   "label": "SP_800_171_03.07.02",
+   "title": "03.07.02",
+   "group": "Maintenance",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.07.03",
+   "label": "SP_800_171_03.07.03",
+   "title": "03.07.03",
+   "group": "Maintenance",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.07.04",
+   "label": "03.07.04",
+   "title": "Maintenance Tools",
+   "group": "Maintenance",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.07.05",
+   "label": "03.07.05",
+   "title": "Nonlocal Maintenance",
+   "group": "Maintenance",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.07.06",
+   "label": "03.07.06",
+   "title": "Maintenance Personnel",
+   "group": "Maintenance",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.08.01",
+   "label": "03.08.01",
+   "title": "Media Storage",
+   "group": "Media Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.08.02",
+   "label": "03.08.02",
+   "title": "Media Access",
+   "group": "Media Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.08.03",
+   "label": "03.08.03",
+   "title": "Media Sanitization",
+   "group": "Media Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.08.04",
+   "label": "03.08.04",
+   "title": "Media Marking",
+   "group": "Media Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.08.05",
+   "label": "03.08.05",
+   "title": "Media Transport",
+   "group": "Media Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.08.06",
+   "label": "SP_800_171_03.08.06",
+   "title": "03.08.06",
+   "group": "Media Protection",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.08.07",
+   "label": "03.08.07",
+   "title": "Media Use",
+   "group": "Media Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.08.08",
+   "label": "SP_800_171_03.08.08",
+   "title": "03.08.08",
+   "group": "Media Protection",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.08.09",
+   "label": "03.08.09",
+   "title": "System Backup – Cryptographic Protection",
+   "group": "Media Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.09.01",
+   "label": "03.09.01",
+   "title": "Personnel Screening",
+   "group": "Personnel Security",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.09.02",
+   "label": "03.09.02",
+   "title": "Personnel Termination and Transfer",
+   "group": "Personnel Security",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.10.01",
+   "label": "03.10.01",
+   "title": "Physical Access Authorizations",
+   "group": "Physical Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.10.02",
+   "label": "03.10.02",
+   "title": "Monitoring Physical Access",
+   "group": "Physical Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.10.03",
+   "label": "SP_800_171_03.10.03",
+   "title": "03.10.03",
+   "group": "Physical Protection",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.10.04",
+   "label": "SP_800_171_03.10.04",
+   "title": "03.10.04",
+   "group": "Physical Protection",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.10.05",
+   "label": "SP_800_171_03.10.05",
+   "title": "03.10.05",
+   "group": "Physical Protection",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.10.06",
+   "label": "03.10.06",
+   "title": "Alternate Work Site",
+   "group": "Physical Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.10.07",
+   "label": "03.10.07",
+   "title": "Physical Access Control",
+   "group": "Physical Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.10.08",
+   "label": "03.10.08",
+   "title": "Access Control for Transmission",
+   "group": "Physical Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.11.01",
+   "label": "03.11.01",
+   "title": "Risk Assessment",
+   "group": "Risk Assessment",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.11.02",
+   "label": "03.11.02",
+   "title": "Vulnerability Monitoring and Scanning",
+   "group": "Risk Assessment",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.11.03",
+   "label": "SP_800_171_03.11.03",
+   "title": "03.11.03",
+   "group": "Risk Assessment",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.11.04",
+   "label": "03.11.04",
+   "title": "Risk Response",
+   "group": "Risk Assessment",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.12.01",
+   "label": "03.12.01",
+   "title": "Security Assessment",
+   "group": "Security Assessment and Monitoring",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.12.02",
+   "label": "03.12.02",
+   "title": "Plan of Action and Milestones",
+   "group": "Security Assessment and Monitoring",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.12.03",
+   "label": "03.12.03",
+   "title": "Continuous Monitoring",
+   "group": "Security Assessment and Monitoring",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.12.04",
+   "label": "SP_800_171_03.12.04",
+   "title": "03.12.04",
+   "group": "Security Assessment and Monitoring",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.12.05",
+   "label": "03.12.05",
+   "title": "Information Exchange",
+   "group": "Security Assessment and Monitoring",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.13.01",
+   "label": "03.13.01",
+   "title": "Boundary Protection",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.13.02",
+   "label": "SP_800_171_03.13.02",
+   "title": "03.13.02",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.13.03",
+   "label": "SP_800_171_03.13.03",
+   "title": "03.13.03",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.13.04",
+   "label": "03.13.04",
+   "title": "Information in Shared System Resources",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.13.05",
+   "label": "SP_800_171_03.13.05",
+   "title": "03.13.05",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.13.06",
+   "label": "03.13.06",
+   "title": "Network Communications – Deny by Default – Allow by Exception",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.13.07",
+   "label": "SP_800_171_03.13.07",
+   "title": "03.13.07",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.13.08",
+   "label": "03.13.08",
+   "title": "Transmission and Storage Confidentiality",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.13.09",
+   "label": "03.13.09",
+   "title": "Network Disconnect",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.13.10",
+   "label": "03.13.10",
+   "title": "Cryptographic Key Establishment and Management",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.13.11",
+   "label": "03.13.11",
+   "title": "Cryptographic Protection",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.13.12",
+   "label": "03.13.12",
+   "title": "Collaborative Computing Devices and Applications",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.13.13",
+   "label": "03.13.13",
+   "title": "Mobile Code",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.13.14",
+   "label": "SP_800_171_03.13.14",
+   "title": "03.13.14",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.13.15",
+   "label": "03.13.15",
+   "title": "Session Authenticity",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.13.16",
+   "label": "SP_800_171_03.13.16",
+   "title": "03.13.16",
+   "group": "System and Communications Protection",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.14.01",
+   "label": "03.14.01",
+   "title": "Flaw Remediation",
+   "group": "System and Information Integrity",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.14.02",
+   "label": "03.14.02",
+   "title": "Malicious Code Protection",
+   "group": "System and Information Integrity",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.14.03",
+   "label": "03.14.03",
+   "title": "Security Alerts, Advisories, and Directives",
+   "group": "System and Information Integrity",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.14.04",
+   "label": "SP_800_171_03.14.04",
+   "title": "03.14.04",
+   "group": "System and Information Integrity",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.14.05",
+   "label": "SP_800_171_03.14.05",
+   "title": "03.14.05",
+   "group": "System and Information Integrity",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.14.06",
+   "label": "03.14.06",
+   "title": "System Monitoring",
+   "group": "System and Information Integrity",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.14.07",
+   "label": "SP_800_171_03.14.07",
+   "title": "03.14.07",
+   "group": "System and Information Integrity",
+   "parent": null,
+   "withdrawn": true
+  },
+  {
+   "control_id": "SP_800_171_03.14.08",
+   "label": "03.14.08",
+   "title": "Information Management and Retention",
+   "group": "System and Information Integrity",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.15.01",
+   "label": "03.15.01",
+   "title": "Policy and Procedures",
+   "group": "Planning",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.15.02",
+   "label": "03.15.02",
+   "title": "System Security Plan",
+   "group": "Planning",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.15.03",
+   "label": "03.15.03",
+   "title": "Rules of Behavior",
+   "group": "Planning",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.16.01",
+   "label": "03.16.01",
+   "title": "Security Engineering Principles",
+   "group": "System and Services Acquisition",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.16.02",
+   "label": "03.16.02",
+   "title": "Unsupported System Components",
+   "group": "System and Services Acquisition",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.16.03",
+   "label": "03.16.03",
+   "title": "External System Services",
+   "group": "System and Services Acquisition",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.17.01",
+   "label": "03.17.01",
+   "title": "Supply Chain Risk Management Plan",
+   "group": "Supply Chain Risk Management",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.17.02",
+   "label": "03.17.02",
+   "title": "Acquisition Strategies, Tools, and Methods",
+   "group": "Supply Chain Risk Management",
+   "parent": null,
+   "withdrawn": false
+  },
+  {
+   "control_id": "SP_800_171_03.17.03",
+   "label": "03.17.03",
+   "title": "Supply Chain Requirements and Processes",
+   "group": "Supply Chain Risk Management",
+   "parent": null,
+   "withdrawn": false
+  }
+ ]
+}

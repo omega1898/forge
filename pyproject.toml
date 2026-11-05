@@ -42,6 +42,8 @@ include = ["forge*"]
 "forge.record" = ["migrations/*.sql"]
 "forge.authority" = ["migrations/*.sql"]
 "forge.contracts" = ["schemas/*.json"]
+# Public-domain NIST control catalogs (OSCAL, compacted) used by compliance reports.
+"forge.compliance" = ["catalogs/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
