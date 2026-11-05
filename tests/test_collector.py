@@ -55,6 +55,12 @@ def test_clean_output_is_imported(out: Path, blobs: BlobStore) -> None:
     ],
 )
 def test_hostile_entries_reject_the_whole_import(out: Path, blobs: BlobStore, make, reason: str) -> None:  # noqa: ANN001
+    if reason == "name_collision":
+        (out / "CaseProbe").write_text("x")
+        case_insensitive = (out / "caseprobe").exists()
+        (out / "CaseProbe").unlink()
+        if case_insensitive:
+            pytest.skip("this filesystem cannot hold names differing only in case, so the collision cannot occur")
     make(out)
     result = collect(out, blobs)
     assert not result.accepted

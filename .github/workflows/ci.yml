@@ -30,11 +30,20 @@ jobs:
       - name: Test
         run: python -m pytest -q
       - name: Language toolchains for the COBOL, OCaml, emulator, shell and RE packs (Linux)
+        # Package names differ between Ubuntu releases; try each alternative and report
+        # anything missing. Tests that need a missing tool skip with that reason.
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends gnucobol3 ocaml-nox ocaml-findlib qemu-user-static \
-            gcc-arm-linux-gnueabihf libc6-dev-armhf-cross shellcheck radare2 default-jdk-headless
+          for group in "gnucobol3 gnucobol4 gnucobol" "ocaml-nox ocaml" "ocaml-findlib" \
+                       "qemu-user-static qemu-user" "gcc-arm-linux-gnueabihf" "libc6-dev-armhf-cross" \
+                       "shellcheck" "radare2" "default-jdk-headless"; do
+            done_group=no
+            for package in $group; do
+              if sudo apt-get install -y -q --no-install-recommends "$package"; then done_group=yes; break; fi
+            done
+            [ "$done_group" = yes ] || echo "::warning::not installed: $group"
+          done
       - name: TypeScript compiler for the editor extension tests (Linux)
         if: runner.os == 'Linux'
         run: npm install -g typescript@6.0.2
