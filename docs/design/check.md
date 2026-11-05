@@ -103,18 +103,17 @@ Limits, also recorded with the evidence:
 
 ## Analysis and sanitizers
 
-The analysis uses each language's compiler or linter:
+`forge check analyze` runs the checkers for the project's coding standards:
 
-- **Ada:** GNAT with `-gnatwa`.
-- **Fortran:** gfortran with `-Wall -Wextra`.
-- **C:** GCC with `-Wall -Wextra -fanalyzer`.
-- **C++:** g++ with `-Wall -Wextra`.
-- **COBOL:** `cobc -Wall`.
-- **Python:** ruff.
+- by default, CERT C/C++ and the 2025 CWE Top 25 for C and C++;
+- for Python, ruff's correctness and security rules;
+- GNAT, gfortran or cobc with every warning on;
+- ShellCheck for scripts.
 
-Each diagnostic becomes a finding. Errors and GCC analyzer warnings (for
-example a possible NULL dereference) are high severity, and the compliance
-static-analysis check blocks on them.
+You choose others in `forge.toml` under `[quality]`; see
+[quality.md](quality.md). Every finding is tied to the CERT rule, CWE
+weakness or Power of Ten rule it breaks. One SARIF 2.1.0 file is recorded per
+run. Blocking findings fail the compliance gate's static-analysis check.
 
 C and C++ tests run under AddressSanitizer and UndefinedBehaviorSanitizer;
 `forge check sanitize` runs just that. A sanitizer report fails the test and

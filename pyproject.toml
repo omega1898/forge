@@ -29,6 +29,8 @@ dev = [
     # Used only in tests: proves the exported JSON Schemas are usable by a
     # non-Python client (the future editor extension).
     "jsonschema>=4.20",
+    # The Python checker behind forge check analyze (and the quality gate); MIT licensed.
+    "ruff>=0.6",
 ]
 
 [project.scripts]
@@ -44,6 +46,8 @@ include = ["forge*"]
 "forge.contracts" = ["schemas/*.json"]
 # Public-domain NIST control catalogs (OSCAL, compacted) used by compliance reports.
 "forge.compliance" = ["catalogs/*.json"]
+# CWE 5.0 (MITRE terms), SEI CERT C/C++ (CC BY 4.0 / MIT) and bandit's CWE table (Apache-2.0), with notices.
+"forge.quality" = ["data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

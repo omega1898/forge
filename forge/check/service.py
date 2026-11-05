@@ -20,7 +20,6 @@ tests.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import shutil
@@ -35,8 +34,8 @@ from forge.contracts.digests import digest_json
 from forge.contracts.errors import ErrorCode, ForgeError
 from forge.contracts.ids import new_id
 from forge.execution.collector import collect_outputs
-from forge.packs.compiled import _BUILD_SHELL, GCOV_TOOLS, TOOLCHAINS, CompiledAssessor, admit_compiled_tools
-from forge.packs.native import NativeAssessor, admit_native_tools, parse_diagnostics
+from forge.packs.compiled import GCOV_TOOLS, TOOLCHAINS, CompiledAssessor, admit_compiled_tools
+from forge.packs.native import NativeAssessor, admit_native_tools
 from forge.packs.python_pack import admit_python_tools
 from forge.sandbox.base import SandboxSpec
 from forge.tools.registry import ToolRegistry
@@ -113,6 +112,7 @@ class CheckService:
         build = spec.build
         parameters: dict[str, Any] = {"forge_project": True, "spec_digest": spec.digest(),
                                       "project_build": build.model_dump(mode="json"),
+                                      "project_quality": spec.quality.standards if spec.quality else None,
                                       "suite_artifact_id": admitted["suite_artifact_id"],
                                       "suite_digest": admitted["suite_digest"]}
         if build.toolchain in COMPILED:
@@ -346,81 +346,47 @@ class CheckService:
     # ------------------------------------------------------------- analyze
 
     def analyze(self, actor: ActorContext, snapshot_id: str | None = None, *, accept: bool = False) -> dict[str, Any]:
+        """Run the checkers of the project's coding standards; record SARIF, evidence and findings."""
+        from forge.quality.findings import dumps
+        from forge.quality.runner import QualityRunner
+
         snapshot_id = snapshot_id or self.latest_snapshot()
         criterion, notices = self.criterion_for(actor, snapshot_id, accept=accept)
         build = criterion.parameters["project_build"]
-        toolchain = build["toolchain"]
-        base = {"step": "analyze", "notices": notices, "toolchain": toolchain}
-        if toolchain == "python":
-            try:
-                ruff = self.registry.resolve("ruff")
-            except ForgeError:
-                return {**base, "result": "not_run", "reason": "ruff is not installed"}
-            outcome = self.assessment.analyze(snapshot_id, ruff)
-            return {**base, "result": "analyzed" if outcome["status"] == "ok" else "error",
-                    "analyzer": "ruff", "findings": [f"{f.path}:{f.line}: {f.rule_id} {f.message}"
-                                                     for f in outcome.get("findings", [])][:20],
-                    "finding_count": len(outcome.get("findings", [])), "evidence_id": outcome["evidence_id"]}
-        chain = TOOLCHAINS.get(toolchain)
-        if chain is None or chain.analyze_arguments is None:
-            return {**base, "result": "not_run", "reason": f"FORGE has no analyzer for {toolchain} yet"}
-        try:
-            tool = self.registry.resolve(chain.compiler)
-        except ForgeError:
-            fallback = {"c": "gcc", "cpp": "gxx"}.get(toolchain)
-            if fallback is None:
-                return {**base, "result": "not_run", "reason": f"{chain.program} is not installed"}
-            tool = self.registry.resolve(fallback)
+        base = {"step": "analyze", "notices": notices, "toolchain": build["toolchain"]}
         caps = self.backend.capabilities()
         if not caps.available:
             return {**base, "result": "not_run", "reason": f"isolation backend unavailable: {caps.unavailable_reason}"}
-        arguments = list(chain.analyze_arguments)
-        if toolchain in NATIVE:
-            arguments = [a for a in arguments if not a.startswith("-std=")]
-            arguments += [f"-std={build.get('standard') or DEFAULT_STANDARD[toolchain]}",
-                          *[f"-I{d}" for d in build.get("include_dirs", [])],
-                          *[f"-D{d}" for d in build.get("defines", [])]]
-        arguments += ["-fdiagnostics-color=never"] if toolchain in ("c", "cpp", "fortran", "c_arm") else []
-        arguments += build["sources"]
-        snapshot_dir = self.assessment._materialize(snapshot_id)
-        work = self.assessment.work_root / new_id("job")
-        limits = self.assessment.limits.model_copy(update={"wall_ms": max(self.assessment.limits.wall_ms, 300_000),
-                                                           "cpu_seconds": max(self.assessment.limits.cpu_seconds,
-                                                                              240)})
-        helpers = {name: os.path.realpath(found) for name, program in chain.helper_env.items()
-                   if (found := shutil.which(program))}
-        try:
-            observation = self.backend.run(SandboxSpec(
-                job_key=f"analyze_{toolchain}", input_dir=str(snapshot_dir), cwd="/input",
-                argv=["/bin/sh", "-c", _BUILD_SHELL, tool.executable, *arguments], limits=limits,
-                toolchain_paths=tool.toolchain_paths,
-                env={"LC_ALL": "C", "TMPDIR": "/tmp", "HOME": "/scratch", "PATH": "/usr/bin:/bin", **helpers}), work)
-        finally:
-            destroy = getattr(self.backend, "destroy", None)
-            if destroy is not None:
-                destroy(work)
-            shutil.rmtree(snapshot_dir, ignore_errors=True)
-        stderr = observation.stderr.decode("utf-8", "replace")
-        diagnostics = [d for d in parse_diagnostics(stderr) if d.severity in ("error", "warning")]
-        status = "ok" if observation.terminated_by == "exited" else "error"
+        scan = QualityRunner(self).scan(snapshot_id, build, criterion.parameters.get("project_quality"))
+        sarif = dumps(scan.sarif())
+        blob = self.blobs.put_bytes(sarif)
+        sarif_id = self._send("artifact.register", {"digest": blob.digest, "size": blob.size,
+                                                    "content_type": "application/sarif+json",
+                                                    "artifact_kind": "sarif_report", "sensitivity": "project"})[
+            "artifact_id"]
+        blocking = [f for f in scan.findings if f.blocking]
+        problems = [r.get("problem") for r in scan.runs if r.get("problem")]
         evidence_id = self._record(snapshot_id, "analyzer_findings", {
-            "status": status, "error": None if status == "ok" else f"analyzer {observation.terminated_by}",
-            "finding_count": len(diagnostics), "analyzer": f"{tool.tool_id}@{tool.version}", "arguments": arguments,
-            "exit_code": observation.exit_code}, f"{tool.tool_id}@{tool.version}",
-            {"tool": tool.executable_digest, "arguments": arguments})
+            "status": scan.status, "error": "; ".join(problems)[:500] or None, "finding_count": len(scan.findings),
+            "blocking_count": len(blocking), "standards": scan.profiles, "tools": scan.tools,
+            "missing_tools": scan.missing, "runs": scan.runs, "attestations": scan.attestations,
+            "sarif_artifact": sarif_id}, CHECK_TOOL_REF, {"tools": scan.tools, "standards": scan.profiles},
+            [sarif_id])
         finding_ids = []
-        for item in diagnostics[:500]:
-            serious = item.severity == "error" or (item.flag or "").startswith("-Wanalyzer")
-            rule = (item.flag or f"compiler-{item.severity}")[:100]
+        for item in scan.findings[:500]:
+            labels = f" [{'; '.join(item.standards[:4])}]" if item.standards else ""
             finding_ids.append(self._send("finding.record", {
-                "rule_id": rule, "claim": item.message[:2000], "severity": "high" if serious else "medium",
+                "rule_id": item.rule[:100], "claim": (item.message + labels)[:2000], "severity": item.severity,
                 "path": item.path, "line": item.line, "snapshot_id": snapshot_id, "evidence_refs": [evidence_id],
-                "fingerprint": "sha256:" + hashlib.sha256(json.dumps([rule, item.path, item.message]).encode())
-                .hexdigest()})["finding_id"])
-        return {**base, "result": "analyzed" if status == "ok" else "error", "analyzer": tool.tool_id,
-                "finding_count": len(diagnostics), "evidence_id": evidence_id, "finding_ids": finding_ids,
-                "findings": [f"{d.path}:{d.line}: {d.severity}: {d.message}"
-                             + (f" [{d.flag}]" if d.flag else "") for d in diagnostics][:20]}
+                "fingerprint": item.identity()})["finding_id"])
+        result = "error" if scan.status == "error" else ("incomplete" if scan.missing else "analyzed")
+        return {**base, "result": result, "standards": scan.profiles, "finding_count": len(scan.findings),
+                "blocking_count": len(blocking), "missing_tools": scan.missing, "evidence_id": evidence_id,
+                "sarif_artifact": sarif_id, "finding_ids": finding_ids, "attestations": scan.attestations,
+                "reason": "; ".join(problems) or (f"not installed: {', '.join(scan.missing)}" if scan.missing else None),
+                "findings": [f"{f.path}:{f.line}: {'BLOCKING ' if f.blocking else ''}{f.message[:160]} [{f.rule}]"
+                             + (f" ({'; '.join(f.standards[:3])})" if f.standards else "")
+                             for f in sorted(scan.findings, key=lambda f: (not f.blocking, f.path, f.line))][:20]}
 
     # ----------------------------------------------------------------- all
 

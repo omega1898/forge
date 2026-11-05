@@ -9,6 +9,8 @@ multi-file apply.
 
 from __future__ import annotations
 
+import shutil
+
 import difflib
 import os
 from pathlib import Path
@@ -345,3 +347,27 @@ def test_loop_turns_observation_and_patch_into_a_reviewable_proposal(rig) -> Non
     assert "packets.append" in report.observations[0]
     proposal = rig["controller"].store.proposal(report.proposal_id)
     assert [c["path"] for c in proposal["changes"]] == ["reader.py"]
+
+
+@pytest.mark.skipif(shutil.which("ruff") is None or not BACKEND.capabilities().available,
+                    reason="needs ruff and the Linux sandbox")
+def test_the_quality_gate_rejects_a_passing_patch_that_breaks_a_standard(rig) -> None:  # noqa: ANN001
+    """Harness as code: tests pass, but eval() (bandit B307, CWE-78, in the 2025 Top 25) is a new blocking finding."""
+    from forge.check.service import CheckService
+    from forge.quality.guard import QualityGate
+    from forge.quality.runner import QualityRunner
+
+    sneaky = CORRECT.replace("print(json.dumps(packets))", "_ = eval('0')\nprint(json.dumps(packets))")
+    assistant = _assistant(
+        rig,
+        {"action": "propose_patch", "rationale": "fix", "patch": diff("reader.py", BUGGY, sneaky),
+         "affected_paths": ["reader.py"]},
+        {"action": "propose_patch", "rationale": "fix without eval", "patch": diff("reader.py", BUGGY, CORRECT),
+         "affected_paths": ["reader.py"]})
+    checks = CheckService(rig["controller"], BACKEND, rig["tmp"] / "quality-work")
+    assistant.quality_gate = QualityGate(QualityRunner(checks), {"toolchain": "python", "entry": "reader.py"}, None)
+    report = assistant.run(_task(rig), rig["base"], rig["criterion_id"], "reject truncated payloads")
+    assert report.status == "ready_for_review" and len(report.candidates) == 2
+    assert any(o.startswith("quality gate rejected the candidate: 1 new") for o in report.observations)
+    second_prompt = [c for c in rig["controller"].store.model_calls() if c["slot_id"] == "next_step"][-1]
+    assert second_prompt["status"] == "valid"

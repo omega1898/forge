@@ -8,6 +8,9 @@ COBOL, OCaml, ARM C under emulation, and Python scripts):
     toolchain = "ada"              # ada | fortran | c | cpp | cobol | ocaml | c_arm | python
     sources = ["main.adb"]         # Ada: the main unit; gnatmake finds the units it uses
 
+    [quality]                      # optional: coding standards to enforce (default: by language)
+    standards = ["ada-restricted"]
+
     [[tests]]
     id = "high_aoa_no_flaps"
     args = ["20", "100", "0"]
@@ -105,9 +108,26 @@ class CheckCase(StrictModel):
         return value
 
 
+class QualitySection(StrictModel):
+    """Coding standards to enforce (forge.quality.registry.PROFILES); empty means the language's defaults."""
+
+    standards: list[str] = Field(default_factory=list, max_length=16)
+
+    @field_validator("standards")
+    @classmethod
+    def _known(cls, value: list[str]) -> list[str]:
+        from forge.quality.registry import PROFILES
+
+        unknown = [name for name in value if name not in PROFILES]
+        if unknown:
+            raise ValueError(f"unknown standard {unknown}; choose from {sorted(PROFILES)}")
+        return list(dict.fromkeys(value))
+
+
 class ProjectSpec(StrictModel):
     build: BuildSection
     tests: list[CheckCase] = Field(min_length=1, max_length=500)
+    quality: QualitySection | None = None
 
     @model_validator(mode="after")
     def _unique(self) -> ProjectSpec:
@@ -144,8 +164,11 @@ class ProjectSpec(StrictModel):
         return suite.model_dump(mode="json")
 
     def digest(self) -> str:
-        """Identity of what is accepted: the build and the tests, not comments or ordering of keys."""
-        return digest_json(self.model_dump(mode="json"))
+        """Identity of what is accepted: the build, the tests and the standards, not comments or key order."""
+        data = self.model_dump(mode="json")
+        if data.get("quality") is None:
+            data.pop("quality", None)        # files without [quality] keep the identity they had before it existed
+        return digest_json(data)
 
     def verifies(self) -> dict[str, list[str]]:
         found: dict[str, list[str]] = {}
