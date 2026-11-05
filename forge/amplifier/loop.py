@@ -42,6 +42,8 @@ class AssistReport:
     proposal_id: str | None = None
     proposal_digest: str | None = None
     detail: str = ""
+    # Filled whenever the loop stops without a result: why, in plain terms (see forge.gateway.escalation).
+    gap: list[str] = field(default_factory=list)
 
 
 class TaskAssistant:
@@ -73,6 +75,24 @@ class TaskAssistant:
         return f"tool {proposal.tool_id!r} with these arguments is not available (read-only tools: {', '.join(READ_TOOLS)})"
 
     def run(self, task_id: str, base_snapshot_id: str, criterion_id: str, objective: str) -> AssistReport:
+        report = self._run(task_id, base_snapshot_id, criterion_id, objective)
+        if report.status != "ready_for_review":
+            from forge.gateway.escalation import explain_gap
+
+            report.gap = explain_gap(report)
+        return report
+
+    def try_proposal(self, proposal: AgentProposal, task_id: str, base_snapshot_id: str,
+                     criterion_id: str) -> AssistReport:
+        """Verify a proposal from elsewhere (for example an escalated frontier answer) exactly like a local one."""
+        report = AssistReport(status="running")
+        outcome = self._try_patch(proposal, task_id, base_snapshot_id, criterion_id, report)
+        report.status = "ready_for_review" if outcome == "ready" else "rejected"
+        if outcome != "ready":
+            report.detail = "; ".join(outcome)[:1000]
+        return report
+
+    def _run(self, task_id: str, base_snapshot_id: str, criterion_id: str, objective: str) -> AssistReport:
         report = AssistReport(status="running")
         seen: set[str] = set()
         failures: list[str] = []

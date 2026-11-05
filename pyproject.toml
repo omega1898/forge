@@ -22,6 +22,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Only for escalating to a frontier model; the offline core never imports it.
+frontier = ["anthropic>=2.5"]
 dev = [
     "pytest>=8",
     # Used only in tests: proves the exported JSON Schemas are usable by a
