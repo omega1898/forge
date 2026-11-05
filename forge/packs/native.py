@@ -596,7 +596,7 @@ class NativeAssessor:
             "observation_type": "native_build",
             "observation": {"outcome": outcome, "exit_code": observation.exit_code, "instrumentation_problems": problems,
                             "terminated_by": observation.terminated_by, "build_context_digest": context.digest(),
-                            "binary_digest": binary_digest,
+                            "binary_digest": binary_digest, "arguments": context.arguments[:200],
                             "diagnostics": [d.model_dump(mode="json") for d in diagnostics][:50],
                             "stderr_tail": stderr[-1500:]},
             "artifact_refs": artifact_refs,

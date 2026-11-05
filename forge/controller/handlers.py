@@ -129,6 +129,18 @@ def _require_version(command: Command, current: int, object_id: str) -> None:
         )
 
 
+def _with_compliance_gate(ctx: HandlerContext, task_type: str, refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """New execute tasks carry the project's compliance gate, so the domain's checks kick in by themselves."""
+    from forge.compliance.service import active_gate
+
+    gate = active_gate(ctx.store)
+    if task_type != "execute" or gate is None or gate["parameters"].get("profile_id") == "none":
+        return refs
+    if any(ref["id"] == gate["criterion_id"] for ref in refs):
+        return refs
+    return [*refs, {"id": gate["criterion_id"], "revision": gate["revision"]}]
+
+
 def _check_ref(ctx: HandlerContext, ref: RevisionRef, kind: str) -> None:
     """A reference must name an existing record of the right kind at its current revision."""
     if id_prefix(ref.id) != kind:
@@ -240,6 +252,20 @@ def criterion_create(ctx: HandlerContext, command: Command) -> Outcome:
     params: CriterionCreateParams = command.params  # type: ignore[assignment]
     if params.assessment_method == "black_box_cases":
         _check_suite_reference(ctx, params.parameters)
+    if params.assessment_method == "compliance_gate":
+        # The gate decides what "done" means for the whole project: only a person sets or removes it.
+        if not ctx.actor.is_trusted_human:
+            raise ForgeError(ErrorCode.PERMISSION_DENIED, "only a trusted person chooses the compliance domain")
+        from forge.compliance.profiles import resolve
+
+        values = params.parameters
+        options = values.get("options") or {}
+        catalogs = values.get("catalogs") or []
+        if not isinstance(values.get("profile_id"), str) or not isinstance(options, dict) \
+                or not isinstance(catalogs, list):
+            raise ForgeError(ErrorCode.INVALID_REQUEST, "a compliance gate needs profile_id, options and catalogs")
+        resolve(values["profile_id"], {str(k): str(v) for k, v in options.items()},
+                extra_catalogs=[str(c) for c in catalogs])
     criterion_id = new_id("criterion")
     body = {
         "criterion_id": criterion_id,
@@ -277,7 +303,8 @@ def task_create(ctx: HandlerContext, command: Command) -> Outcome:
         "title": params.title,
         "status": "queued",
         "requirement_refs": [ref.model_dump() for ref in params.requirement_refs],
-        "criterion_refs": [ref.model_dump() for ref in params.criterion_refs],
+        "criterion_refs": _with_compliance_gate(ctx, params.task_type,
+                                                [ref.model_dump() for ref in params.criterion_refs]),
         "input_refs": [ref.model_dump() for ref in params.input_refs],
         "authority_ref": params.authority_ref,
         "budget": params.budget.model_dump(),
@@ -759,7 +786,8 @@ def plan_apply(ctx: HandlerContext, command: Command) -> Outcome:
             "title": task.title,
             "status": "queued",
             "requirement_refs": [ref.model_dump() for ref in task.requirement_refs],
-            "criterion_refs": [ref.model_dump() for ref in task.criterion_refs],
+            "criterion_refs": _with_compliance_gate(ctx, task.task_type,
+                                                    [ref.model_dump() for ref in task.criterion_refs]),
             "input_refs": [ref.model_dump() for ref in task.input_refs],
             "authority_ref": task.authority_ref,
             "budget": task.budget.model_dump(),

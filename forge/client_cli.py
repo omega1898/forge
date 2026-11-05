@@ -17,6 +17,15 @@ editor action produce the same recorded state transition.
     forge summary --root DIR
     forge events  --root DIR [--after N] [--follow]
 
+    forge comply domains                          list compliance domains and standards
+    forge comply set DOMAIN [--level A] [--baseline high] [--option K=V] [--catalog ID]
+    forge comply check  [--snapshot ID] [--requirements PATH] [--output FILE]
+    forge comply report [--snapshot ID] [--domain D] [--output FILE.md|FILE.json]
+    forge comply attest CATALOG LABEL... --statement TEXT [--scope process|snapshot]
+    forge comply attest --file ATTESTATIONS.csv   (columns: catalog,label,statement)
+    forge comply import-catalog FILE --id ID --title T [--format oscal|csv] [--mapping CSV]
+    forge comply import-vulns FILE_OR_DIR         (OSV JSON records)
+
 Mutating commands accept --key to retry safely: the same key and content
 returns the original result instead of acting twice.
 """
@@ -33,7 +42,7 @@ from typing import Any
 
 from forge.api.client import ForgeClient, RpcError
 from forge.api.launcher import launch, read_connection
-from forge.contracts.errors import ForgeError
+from forge.contracts.errors import ErrorCode, ForgeError
 from forge.reports.standup import escape, render_standup
 from forge.reports.summary import ProjectSummary
 
@@ -168,9 +177,222 @@ def cmd_events(args: argparse.Namespace) -> int:
     return 0
 
 
+# --------------------------------------------------------------- compliance
+
+_SHORT_OPTIONS = ("level", "baseline", "safety_class", "asil", "sil", "software_class", "coverage")
+
+
+def _comply_options(args: argparse.Namespace) -> dict[str, str] | None:
+    options = {name: value for name in _SHORT_OPTIONS if (value := getattr(args, name, None)) is not None}
+    for item in getattr(args, "option", None) or []:
+        name, separator, value = item.partition("=")
+        if not separator:
+            raise ForgeError(ErrorCode.INVALID_REQUEST, f"--option needs NAME=VALUE, got {item!r}")
+        options[name.strip()] = value.strip()
+    return options or None
+
+
+def _plain(text: str, limit: int) -> str:
+    """Terminal-safe: no control characters (a hostile file name cannot move the cursor or recolor output)."""
+    flat = "".join(ch if ch.isprintable() else " " for ch in str(text))
+    return flat if len(flat) <= limit else flat[: limit - 3] + "..."
+
+
+def _write_report(data: dict[str, Any], output: Path | None) -> str:
+    if output is None:
+        return data["markdown"]
+    text = json.dumps(data["report"], indent=2) if output.suffix == ".json" else data["markdown"]
+    output.write_text(text, encoding="utf-8")
+    return f"report written to {output}"
+
+
+def cmd_comply_domains(args: argparse.Namespace) -> int:
+    data = _client(args.root).call("compliance.domains")
+    lines = []
+    for domain in data["domains"]:
+        options = "; ".join(f"--{k.replace('_', '-')} {'|'.join(v['values'])} (default {v['default']})"
+                            for k, v in domain["options"].items())
+        lines.append(f"{domain['profile_id']:<11} {domain['title']}" + (f"\n{'':<11} {options}" if options else ""))
+    active = data.get("active")
+    lines.append("\nactive: " + (active["subject"] if active else "none (forge comply set DOMAIN)"))
+    _print(data, args.json, "\n".join(lines))
+    return 0
+
+
+def cmd_comply_set(args: argparse.Namespace) -> int:
+    data = _client(args.root).call("compliance.set_domain", {"domain": args.domain, "options": _comply_options(args),
+                                                             "catalogs": args.catalog})
+    profile = data["profile"]
+    text = (f"compliance domain set: {profile['title']}\n"
+            f"gate checks: {', '.join(profile['gate_checks']) or 'none'}\n"
+            + "".join(f"note: {note}\n" for note in profile["notes"])
+            + "new execute tasks now carry this gate; run `forge comply check` to see where you stand")
+    _print(data, args.json, text)
+    return 0
+
+
+def cmd_comply_check(args: argparse.Namespace) -> int:
+    data = _client(args.root).call("compliance.check", {"snapshot_id": args.snapshot,
+                                                        "requirements": args.requirements})
+    report = data["report"]
+    if args.json:
+        _print(data, True, "")
+        return 0
+    lines = [f"snapshot {data['snapshot_id']}: gate {report['gate_status'].upper()} ({report['profile']['title']})"]
+    for check_id in report["profile"]["gate_checks"]:
+        check = report["checks"][check_id]
+        lines.append(f"  {check['status']:<15} {check['title']}: {_plain(check['detail'], 160)}")
+    for section in report["catalogs"]:
+        counts = section["counts"]
+        lines.append(f"{section['catalog_id']} ({section['selection'].split(' (')[0]}): met {counts['met']}, gap "
+                     f"{counts['gap']}, incomplete {counts['incomplete']}, attested {counts['attested']}, needs "
+                     f"attestation {counts['needs_attestation']}")
+    if data["next"]:
+        lines.append("next:")
+        lines.extend(f"  {n}. {_plain(step, 300)}" for n, step in enumerate(data["next"], 1))
+    if args.output:
+        lines.append(_write_report(data, args.output))
+    print("\n".join(lines))
+    return 0
+
+
+def cmd_comply_report(args: argparse.Namespace) -> int:
+    data = _client(args.root).call("compliance.report", {"snapshot_id": args.snapshot, "domain": args.domain,
+                                                         "options": _comply_options(args)})
+    if args.json and args.output is None:
+        _print(data["report"], True, "")
+        return 0
+    print(_write_report(data, args.output))
+    return 0
+
+
+def cmd_comply_attest(args: argparse.Namespace) -> int:
+    import csv
+
+    client = _client(args.root)
+    batches: dict[tuple[str, str], list[str]] = {}
+    if args.file:
+        with open(args.file, encoding="utf-8-sig", newline="") as handle:
+            for row in csv.DictReader(handle):
+                key = (row.get("catalog", "").strip(), row.get("statement", "").strip())
+                batches.setdefault(key, []).append(row.get("label", "").strip())
+    else:
+        if not args.catalog or not args.labels or not (args.statement or args.withdraw):
+            raise ForgeError(ErrorCode.INVALID_REQUEST, "give CATALOG LABEL... --statement TEXT, or --file CSV")
+        batches[(args.catalog, args.statement or "")] = args.labels
+    recorded = []
+    for (catalog, statement), labels in batches.items():
+        result = client.call("compliance.attest", {"snapshot_id": args.snapshot, "catalog": catalog, "labels": labels,
+                                                   "statement": statement, "scope": args.scope,
+                                                   "withdraw": args.withdraw})
+        recorded.extend(result["evidence_ids"])
+    _print({"evidence_ids": recorded}, args.json, f"{len(recorded)} attestation(s) recorded in your name")
+    return 0
+
+
+def cmd_comply_import_catalog(args: argparse.Namespace) -> int:
+    from forge.compliance.oscal import import_catalog
+    from forge.compliance.service import parse_csv_catalog, parse_mapping_csv
+
+    raw = Path(args.file).read_bytes()
+    kind = args.format or ("csv" if str(args.file).lower().endswith(".csv") else "oscal")
+    source = args.source or f"file:{Path(args.file).name}"
+    if kind == "csv":
+        catalog = parse_csv_catalog(raw, catalog_id=args.id, title=args.title, version=args.version or "",
+                                    source=source, license_note=args.license)
+    else:
+        catalog = import_catalog(raw, catalog_id=args.id, source_url=source,
+                                 license_note=args.license).model_dump(mode="json")
+        if args.title:
+            catalog["title"] = args.title
+    mappings = parse_mapping_csv(Path(args.mapping).read_bytes()) if args.mapping else {}
+    data = _client(args.root).call("compliance.import_catalog", {"catalog": catalog, "mappings": mappings})
+    _print(data, args.json, f"catalog {data['catalog_id']} imported: {data['controls']} controls, {data['mapped']} "
+                            "mapped to FORGE checks (stored as sensitive; never sent to a model)")
+    return 0
+
+
+def _osv_records(path: Path) -> list[dict[str, Any]]:
+    files = sorted(path.rglob("*.json")) if path.is_dir() else [path]
+    records: list[dict[str, Any]] = []
+    for item in files:
+        data = json.loads(item.read_text(encoding="utf-8"))
+        records.extend(data if isinstance(data, list) else data.get("vulns", [data]) if isinstance(data, dict) else [])
+    return records
+
+
+def cmd_comply_import_vulns(args: argparse.Namespace) -> int:
+    client = _client(args.root)
+    records = _osv_records(Path(args.path))
+    imported, batch, size = 0, [], 0
+    for record in records + [None]:            # None flushes the last batch
+        encoded = 0 if record is None else len(json.dumps(record))
+        if batch and (record is None or size + encoded > 700_000):
+            imported += client.call("compliance.import_vulnerabilities",
+                                    {"records": batch, "source": str(args.path)})["records"]
+            batch, size = [], 0
+        if record is not None:
+            batch.append(record)
+            size += encoded
+    _print({"records": imported}, args.json, f"{imported} vulnerability records imported (offline database)")
+    return 0
+
+
+def _add_comply(sub, common: argparse.ArgumentParser) -> None:  # noqa: ANN001
+    comply = sub.add_parser("comply", help="compliance domain, checks, reports and attestations")
+    actions = comply.add_subparsers(dest="comply_action", required=True)
+
+    def action(name: str, handler, help_text: str):  # noqa: ANN001, ANN202
+        parser = actions.add_parser(name, parents=[common], help=help_text)
+        parser.set_defaults(handler=handler)
+        return parser
+
+    def option_flags(parser: argparse.ArgumentParser) -> None:
+        for name in _SHORT_OPTIONS:
+            parser.add_argument(f"--{name.replace('_', '-')}", dest=name, default=None)
+        parser.add_argument("--option", action="append", default=[], help="any domain option as NAME=VALUE")
+
+    action("domains", cmd_comply_domains, "list domains, their options and standards")
+    chosen = action("set", cmd_comply_set, "choose what the software is built for")
+    chosen.add_argument("domain")
+    option_flags(chosen)
+    chosen.add_argument("--catalog", action="append", default=[], help="also report against an imported catalog")
+    check = action("check", cmd_comply_check, "produce evidence, assess the gate, summarize")
+    check.add_argument("--snapshot", default=None, help="snapshot id (default: the latest)")
+    check.add_argument("--requirements", default=None, help="requirements list inside the snapshot (CSV)")
+    check.add_argument("--output", type=Path, default=None, help="also write the full report (.md or .json)")
+    report = action("report", cmd_comply_report, "write the control-by-control report")
+    report.add_argument("--snapshot", default=None)
+    report.add_argument("--domain", default=None, help="report against another domain without changing the gate")
+    option_flags(report)
+    report.add_argument("--output", type=Path, default=None)
+    attest = action("attest", cmd_comply_attest, "record your statement for controls FORGE cannot check")
+    attest.add_argument("catalog", nargs="?")
+    attest.add_argument("labels", nargs="*")
+    attest.add_argument("--statement", default=None)
+    attest.add_argument("--file", default=None, help="CSV with columns catalog,label,statement")
+    attest.add_argument("--scope", default="process", choices=["process", "snapshot"])
+    attest.add_argument("--snapshot", default=None)
+    attest.add_argument("--withdraw", action="store_true", help="withdraw an earlier attestation")
+    imported = action("import-catalog", cmd_comply_import_catalog, "import a standard you hold (OSCAL or CSV)")
+    imported.add_argument("file")
+    imported.add_argument("--id", required=True, help="short name, e.g. do-178c")
+    imported.add_argument("--title", default="")
+    imported.add_argument("--version", default=None)
+    imported.add_argument("--format", choices=["oscal", "csv"], default=None)
+    imported.add_argument("--mapping", default=None, help="CSV: label,check_id[;check_id]")
+    imported.add_argument("--source", default=None, help="where the original came from (shown in reports)")
+    imported.add_argument("--license", default="licensed copy held by the user; not redistributable")
+    vulns = action("import-vulns", cmd_comply_import_vulns, "import OSV vulnerability records for offline scans")
+    vulns.add_argument("path")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="forge", description="FORGE command-line client")
     sub = parser.add_subparsers(dest="command", required=True)
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--root", type=Path, default=Path("forge-data"))
+    common.add_argument("--json", action="store_true", help="machine-readable output")
 
     def add(name: str, handler, *, mutating: bool = False):  # noqa: ANN001, ANN202
         command = sub.add_parser(name)
@@ -204,6 +426,7 @@ def main(argv: list[str] | None = None) -> int:
     events = add("events", cmd_events)
     events.add_argument("--after", type=int, default=0)
     events.add_argument("--follow", action="store_true")
+    _add_comply(sub, common)
 
     args = parser.parse_args(argv)
     try:

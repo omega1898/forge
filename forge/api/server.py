@@ -88,6 +88,15 @@ class ApiServer:
             "health.get": self._health,
             "authority.inspect": self._authority_inspect,
             "authority.approve_source_root": self._approve_source_root,
+            # Compliance (forge.compliance.service). Setting the domain, attesting and importing are
+            # refused there unless the caller is the trusted person.
+            "compliance.domains": lambda actor, params: self._compliance().domains(),
+            "compliance.set_domain": self._compliance_set_domain,
+            "compliance.check": self._compliance_check,
+            "compliance.report": self._compliance_report,
+            "compliance.attest": self._compliance_attest,
+            "compliance.import_catalog": self._compliance_import_catalog,
+            "compliance.import_vulnerabilities": self._compliance_import_vulnerabilities,
         }
 
     @property
@@ -252,6 +261,83 @@ class ApiServer:
             raise ForgeError(ErrorCode.INVALID_REQUEST, f"source root {label!r} is not declared by this project")
         resolved = trust.approve_source_root(project.project_id, label, Path(str(params.get("path", ""))), actor)
         return {"label": label, "path": str(resolved)}
+
+    # ----------------------------------------------------------- compliance
+
+    def _compliance(self):  # noqa: ANN202 - ComplianceService
+        from forge.compliance.service import ComplianceService
+
+        return ComplianceService(self.controller)
+
+    @staticmethod
+    def _text(params: dict[str, Any], name: str, *, required: bool = False, limit: int = 4000) -> str | None:
+        value = params.get(name)
+        if value is None and not required:
+            return None
+        if not isinstance(value, str) or not value or len(value) > limit:
+            raise ForgeError(ErrorCode.INVALID_REQUEST, f"{name} must be a non-empty string")
+        return value
+
+    @staticmethod
+    def _strings(params: dict[str, Any], name: str) -> list[str]:
+        value = params.get(name) or []
+        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+            raise ForgeError(ErrorCode.INVALID_REQUEST, f"{name} must be a list of strings")
+        return value
+
+    @staticmethod
+    def _options(params: dict[str, Any]) -> dict[str, str] | None:
+        value = params.get("options")
+        if value is None:
+            return None
+        if not isinstance(value, dict):
+            raise ForgeError(ErrorCode.INVALID_REQUEST, "options must be an object")
+        return {str(k): str(v) for k, v in value.items()}
+
+    def _compliance_set_domain(self, actor: ActorContext, params: dict[str, Any]) -> dict[str, Any]:
+        return self._compliance().set_domain(actor, self._text(params, "domain", required=True, limit=64),
+                                             self._options(params), self._strings(params, "catalogs"))
+
+    def _compliance_check(self, actor: ActorContext, params: dict[str, Any]) -> dict[str, Any]:
+        from forge.compliance.report import next_steps, render_markdown
+        from forge.compliance.service import ComplianceReport
+
+        result = self._compliance().check(self._text(params, "snapshot_id", limit=100),
+                                          requirements_path=self._text(params, "requirements", limit=1000),
+                                          profile_id=self._text(params, "domain", limit=64),
+                                          options=self._options(params))
+        report = ComplianceReport.model_validate(result["report"])
+        return {**result, "markdown": render_markdown(report), "next": next_steps(report)}
+
+    def _compliance_report(self, actor: ActorContext, params: dict[str, Any]) -> dict[str, Any]:
+        from forge.compliance.report import next_steps, render_markdown
+
+        report = self._compliance().report(self._text(params, "snapshot_id", limit=100),
+                                           profile_id=self._text(params, "domain", limit=64),
+                                           options=self._options(params))
+        return {"report": report.model_dump(mode="json"), "markdown": render_markdown(report),
+                "next": next_steps(report)}
+
+    def _compliance_attest(self, actor: ActorContext, params: dict[str, Any]) -> dict[str, Any]:
+        ids = self._compliance().attest(
+            actor, snapshot_id=self._text(params, "snapshot_id", limit=100),
+            catalog_id=self._text(params, "catalog", required=True, limit=64),
+            labels=self._strings(params, "labels")[:500], statement=str(params.get("statement", ""))[:4000],
+            scope=str(params.get("scope", "process")), withdraw=bool(params.get("withdraw", False)))
+        return {"evidence_ids": ids}
+
+    def _compliance_import_catalog(self, actor: ActorContext, params: dict[str, Any]) -> dict[str, Any]:
+        catalog, mappings = params.get("catalog"), params.get("mappings") or {}
+        if not isinstance(catalog, dict) or not isinstance(mappings, dict):
+            raise ForgeError(ErrorCode.INVALID_REQUEST, "catalog and mappings must be objects")
+        return self._compliance().import_catalog(actor, catalog, mappings)
+
+    def _compliance_import_vulnerabilities(self, actor: ActorContext, params: dict[str, Any]) -> dict[str, Any]:
+        records = params.get("records")
+        if not isinstance(records, list):
+            raise ForgeError(ErrorCode.INVALID_REQUEST, "records must be a list of OSV records")
+        return self._compliance().import_vulnerabilities(actor, records,
+                                                         source=str(params.get("source", "unspecified")))
 
     def _health(self, actor: ActorContext, params: dict[str, Any]) -> dict[str, Any]:
         health: dict[str, Any] = {"controller": "ok", "last_event_seq": self.controller.store.last_event_seq()}
