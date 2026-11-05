@@ -9,9 +9,10 @@ collected and the protected suite runs them through the `{java}`
 placeholder. The JVM runs with the serial collector and a single compiler
 tier to stay inside the sandbox's process limit.
 
-COBOL/JCL: no COBOL compiler (GnuCOBOL `cobc`) or JCL runner is installed
-here, so the pack reports itself unavailable and its checks are `not_run`.
-Its deterministic half works without a compiler: copybook layouts, EBCDIC,
+COBOL/JCL: COBOL programs are compiled with GnuCOBOL (`cobc`) and run by
+`forge.packs.compiled` when it is installed; pack status is measured, so a
+host without `cobc` reports the pack unavailable. JCL is not executed. The
+deterministic half works without a compiler: copybook layouts, EBCDIC,
 zoned and packed decimals, COBOL rounding and exact record comparison live
 in `forge.packs.cobol_layout`.
 """
@@ -51,8 +52,9 @@ JAVA_PACK = PackDescriptor(
 COBOL_PACK = PackDescriptor(
     pack_id="cobol", version=1, languages=["cobol", "jcl"], tools=["cobc"], evaluators=["record_comparison"],
     task_templates=["migration"], selected_by_facts=["language.cobol"],
-    limitations=["no COBOL compiler or JCL runner on this host: COBOL programs cannot be built or run",
-                 "copybook layouts, EBCDIC, zoned and packed decimals and record comparison work without one",
+    limitations=["COBOL programs build and run with GnuCOBOL (cobc) through forge.packs.compiled when it is "
+                 "installed; JCL is not executed",
+                 "copybook layouts, EBCDIC, zoned and packed decimals and record comparison work without a compiler",
                  "REDEFINES, OCCURS DEPENDING ON, binary and floating-point usages are refused"])
 OTHER_PACKS = {
     "c": ("gcc", "clang"), "cpp": ("g++", "clang++"), "java": ("javac", "java"), "cobol": ("cobc",),

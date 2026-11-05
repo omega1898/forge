@@ -158,3 +158,33 @@ def lint_bash(text: str) -> list[LintFinding]:
             findings.append(LintFinding("BASH005", number, "rm -r on a variable path without a ${VAR:?} guard "
                                                            "deletes from / when the variable is empty"))
     return findings
+
+
+# --------------------------------------------------------------- shellcheck
+
+SHELLCHECK_SEVERITY = {"error": "high", "warning": "medium", "info": "low", "style": "low"}
+
+
+def run_shellcheck(service, snapshot_id: str, scripts: list[str], executable: str) -> list[dict]:  # noqa: ANN001
+    """Run the admitted shellcheck on snapshot scripts in the sandbox; normalized findings."""
+    import json as _json
+
+    for path in scripts:
+        check_relative_path(path)
+    directory = service._materialize(snapshot_id)
+    work = service.work_root / new_id("job")
+    try:
+        observation = service.backend.run(SandboxSpec(
+            job_key="shellcheck", input_dir=str(directory), cwd="/input",
+            argv=[executable, "--format=json1", "--norc", "--", *scripts], limits=service.limits), work)
+    finally:
+        destroy = getattr(service.backend, "destroy", None)
+        if destroy is not None:
+            destroy(work)
+        shutil.rmtree(directory, ignore_errors=True)
+    if observation.terminated_by != "exited" or observation.exit_code not in (0, 1):
+        raise ForgeError(ErrorCode.INTERNAL_ERROR, f"shellcheck did not run: {observation.stderr[-300:]!r}")
+    comments = _json.loads(observation.stdout or b'{"comments": []}').get("comments", [])
+    return [{"rule": f"SC{item['code']}", "path": item["file"], "line": item["line"],
+             "severity": SHELLCHECK_SEVERITY.get(item["level"], "low"), "message": item["message"][:300]}
+            for item in comments]

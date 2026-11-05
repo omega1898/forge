@@ -3,18 +3,17 @@
 An offline software engineering controller, built from the *FORGE Engineering
 Blueprint, design baseline 0.1 (4 November 2026)*.
 
-> **Status: every ticket this Linux machine can test is built (F01-F20,
-> F22-F24 partly or fully, D01-D11, plus TDD tooling).** Built and tested
-> here: project record, snapshots, sandboxed tools, protected evaluation,
-> proposals and safe apply, model gateway, retrieval, Python, C/C++, Java and
-> Bash packs, performance, platform truthfulness, teaching, TDD, offline
-> bundles, an editor extension's logic, and simulated migration and board
-> workflows. **Not built, because this machine cannot run them:** native
-> Windows and macOS hosts, COBOL/JCL execution, PowerShell and OCaml packs,
-> the reverse-engineering VM (F21), real emulators and boards, and real
-> local model weights. Those checks report `not_run` instead of passing.
-> Nothing here is security-qualified; the Linux sandbox is for trusted code
-> only.
+> **Status: built and tested on this Linux machine: F01-F24 and D01-D11, plus
+> TDD tooling** (F20-F22 within the limits below). This includes COBOL (GnuCOBOL),
+> OCaml, Java, C/C++, Bash with shellcheck, an ARM emulator tier (QEMU),
+> reverse engineering with radare2, and a live COBOL-to-Java migration
+> comparison. **Not built:** native Windows and macOS hosts (no such
+> machines), PowerShell (installing Microsoft's package repository was not
+> permitted in this session), JCL execution, real boards, a dedicated RE
+> virtual machine (owned samples only, in the Linux sandbox), and real local
+> model weights (the model hosts are blocked by this environment's network
+> policy). Those checks report `not_run` instead of passing. Nothing here is
+> security-qualified; the Linux sandbox is for trusted code only.
 
 ## What exists today
 
@@ -43,12 +42,12 @@ Blueprint, design baseline 0.1 (4 November 2026)*.
 | F18 | Performance workflow: exclusive machine leases (inference and indexing queue behind a benchmark; the model gateway takes a shared lease per call); candidates measured only when correctness-qualified, on a reserved evaluation workload, in alternating rounds; background CPU and hypervisor-steal interference makes the measurement inconclusive; output must match the baseline in every repetition; seeded bootstrap interval on the ratio of medians; raw repetitions and host conditions recorded | **Done** (wall-clock of whole runs on one named Linux host; no hardware counters, no latency percentiles yet) |
 | D09 | Variance bridge in exact rational arithmetic with the tie-out invariant enforced (the skill's own price/volume example ties out only with the interaction term); multi-item cost bridge (volume, mix, rate, new and removed items); either-limit thresholds; three-bucket reconciliation with non-overlapping aging and preparer/reconciler separation | **Done** |
 | TDD | Test-driven development as enforced code (user request): sandboxed standard-library unit runner with failure classification (assertion, missing symbol, broken test, error, timeout) and an authenticated result channel; red/green/refactor rules checked against snapshots and chained as evidence; mutation testing on changed lines with surviving mutants as findings and an optional minimum score; reward-hacking scan for test-aware production code; functional test design (boundary values, equivalence classes, verified pairwise, decision-table and state-machine checks, safe test rendering). See `docs/design/tdd-and-test-design.md` | **Done** |
-| F19 | Java pack: javac/java admitted by digest with the JDK's external configuration directory mounted read-only; build in the sandbox, classes collected, protected suite run through `{java}`; compile diagnostics. COBOL/JCL: reported unavailable (no `cobc` here); copybook layouts, EBCDIC code pages, zoned and packed decimals, COBOL ROUNDED and exact record comparison with explicit accepted differences work without a compiler. Measured pack status table | **Done** for Java; COBOL execution **not available on this host** |
-| F23 | Bash pack and scoped testing tools: script tools declare typed arguments (path, integer, choice, patterned text, target); hostile values are refused with a reason and accepted ones travel as argv, so shell metacharacters stay inert; target scope refuses URL userinfo, non-canonical IP forms, out-of-network IPv4-mapped IPv6, non-ASCII hosts, ungranted ports and schemes, and DNS answers outside the grant (resolved addresses are pinned); five-rule Bash linter | **Done** for Bash; PowerShell and OCaml **not installed here** (reported by the measured pack status) |
+| F19 | Java pack: javac/java admitted by digest with the JDK's external configuration directory mounted read-only; build in the sandbox, classes collected, protected suite run through `{java}`; compile diagnostics. COBOL/JCL: reported unavailable (no `cobc` here); copybook layouts, EBCDIC code pages, zoned and packed decimals, COBOL ROUNDED and exact record comparison with explicit accepted differences work without a compiler. Measured pack status table | **Done**: Java, and COBOL programs compiled with GnuCOBOL and run in the sandbox (`forge/packs/compiled.py`); JCL not executed |
+| F23 | Bash pack and scoped testing tools: script tools declare typed arguments (path, integer, choice, patterned text, target); hostile values are refused with a reason and accepted ones travel as argv, so shell metacharacters stay inert; target scope refuses URL userinfo, non-canonical IP forms, out-of-network IPv4-mapped IPv6, non-ASCII hosts, ungranted ports and schemes, and DNS answers outside the grant (resolved addresses are pinned); five-rule Bash linter | **Done** for Bash (plus shellcheck run in the sandbox) and OCaml (reference and round-trip property checks); PowerShell **not installed** (repository install not permitted here) |
 | F24 | Offline bundles: Ed25519-signed manifests verified only with keys a trusted user enrolled; expiry, downgrade/replay ledger, per-file digests, platform checks, safe archive extraction, admission hook, immutable versions, atomic switch, recorded rollback | **Done** (proves origin and integrity, not that contents are benign) |
-| F20 | Migration (partial): restartable batch with exactly-once output per record (a rolled-back checkpoint cannot duplicate a side effect); comparison against approved reference output with explicit accepted differences; preparer/reconciler separation; cutover and rollback rehearsal that refuses cutover on any unaccepted difference | **Partial**: the approved reference is recorded legacy output; no COBOL compiler here to produce it live |
-| F21 | Reverse-engineering VM adapter, hypotheses, controlled experiments | **Not built**: needs a dedicated isolated VM that does not exist on this host |
-| F22 | Embedded (partial): host, emulator and hardware evidence tiers never stand in for each other; board actions need an approval bound to the board serial, image digest and operation; a simulated A/B board on the F07 external-effect path shows that power loss mid-flash leaves `unknown` state for a person and is never re-flashed automatically (EX-T11) | **Partial**: no emulator or board protocol adapter is installed; the board is simulated |
+| F20 | Migration (partial): restartable batch with exactly-once output per record (a rolled-back checkpoint cannot duplicate a side effect); comparison against approved reference output with explicit accepted differences; preparer/reconciler separation; cutover and rollback rehearsal that refuses cutover on any unaccepted difference | **Done for a bounded step**: the live COBOL job is the approved behavior; the Java BigDecimal port matches it and a floating-point port's differences are exposed record by record. JCL and real cutover are not exercised |
+| F21 | Reverse engineering with radare2 in the sandbox: owned-sample intake; bounded extraction citing sample digest, address and image base; sample text fenced as untrusted data; hypothesis ledger decided by one-field-at-a-time experiments (the seeded little-endian hypothesis is refuted, big-endian supported); harness validated separately from parser findings; wrong image bases flagged; differential corpus against a compatibility implementation with mismatches turned into experiments | **Done for owned samples**; hostile samples need the RE virtual machine, which does not exist here |
+| F22 | Embedded (partial): host, emulator and hardware evidence tiers never stand in for each other; board actions need an approval bound to the board serial, image digest and operation; a simulated A/B board on the F07 external-effect path shows that power loss mid-flash leaves `unknown` state for a person and is never re-flashed automatically (EX-T11) | **Emulator tier done** (ARM build of the packet parser run under QEMU user-mode emulation, recorded as emulator evidence, never as hardware); real boards are simulated |
 
 Acceptance results checked by the test suite (`tests/`):
 

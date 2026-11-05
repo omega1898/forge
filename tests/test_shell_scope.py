@@ -141,3 +141,29 @@ def test_unavailable_shells_are_reported_not_faked() -> None:
     for pack in ("powershell", "ocaml"):
         if not rows[pack]["available"]:
             assert rows[pack]["reason"].startswith("not installed")
+
+
+@pytest.mark.skipif(not BACKEND.capabilities().available or __import__("shutil").which("shellcheck") is None,
+                    reason="sandbox or shellcheck unavailable")
+def test_shellcheck_runs_sandboxed_and_its_findings_are_normalized(controller, human, trust, tmp_path) -> None:  # noqa: ANN001
+    import os
+    import shutil as _shutil
+
+    from forge.packs.shell import run_shellcheck
+
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "risky.sh").write_text('#!/bin/bash\ncp $1 /tmp/out\n')
+    (source / "careful.sh").write_text('#!/bin/bash\nset -euo pipefail\ncp -- "$1" /tmp/out\n')
+    project_id = controller.apply_command(
+        command("project.create", {"name": "Scripts", "objective": "o", "source_roots": ["main"]}), human).project_id
+    trust.approve_source_root(project_id, "main", source, human)
+    snapshot = controller.apply_command(command("workspace.capture", {"source_root": "main"},
+                                                project_id=project_id), human).result["snapshot_id"]
+    service = AssessmentService(controller, BACKEND, tmp_path / "work")
+    executable = os.path.realpath(_shutil.which("shellcheck"))
+    risky = run_shellcheck(service, snapshot, ["risky.sh"], executable)
+    assert {(f["rule"], f["path"], f["line"]) for f in risky} >= {("SC2086", "risky.sh", 2)}
+    assert run_shellcheck(service, snapshot, ["careful.sh"], executable) == []
+    with pytest.raises(ValueError):
+        run_shellcheck(service, snapshot, ["../escape.sh"], executable)
