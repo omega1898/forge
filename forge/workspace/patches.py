@@ -8,6 +8,11 @@ rejected, so a model cannot get an edit landed somewhere it did not intend.
 Only plain text edits, additions and deletions of regular files are
 supported. Renames, mode changes, symlinks and binary patches are refused.
 Paths are validated as clean relative paths.
+
+Lines are split on "\n" only. Python's str.splitlines() also splits on form
+feed, vertical tab and Unicode line separators, which would rewrite a C or
+Fortran source holding a page break. A completely empty line inside a hunk
+is an empty context line, as git apply reads it.
 """
 
 from __future__ import annotations
@@ -41,10 +46,18 @@ def _strip_prefix(raw: str) -> str | None:
     return check_relative_path(raw)
 
 
+def split_lines(text: str) -> list[str]:
+    """Lines split on "\n" alone; a final newline does not start an empty line."""
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return lines
+
+
 def parse_patch(text: str) -> list[FilePatch]:
     if len(text.encode("utf-8")) > MAX_PATCH_BYTES:
         raise ForgeError(ErrorCode.INVALID_REQUEST, "patch is too large")
-    lines = text.splitlines()
+    lines = [line.removesuffix("\r") for line in split_lines(text)]
     files: list[FilePatch] = []
     index = 0
     while index < len(lines):
@@ -81,7 +94,9 @@ def parse_patch(text: str) -> list[FilePatch]:
                 if body_line.startswith("\\"):  # "\ No newline at end of file"
                     index += 1
                     continue
-                if not body_line or body_line[0] not in " +-":
+                if not body_line:
+                    body_line = " "  # an empty context line whose leading space was dropped
+                if body_line[0] not in " +-":
                     raise ForgeError(ErrorCode.INVALID_REQUEST, f"malformed hunk line in {current.path}")
                 if body_line[0] in " -":
                     seen_old += 1
@@ -104,7 +119,7 @@ def apply_file_patch(base_text: str | None, patch: FilePatch) -> str | None:
         raise ForgeError(ErrorCode.INVALID_REQUEST, f"patch creates {patch.path}, which already exists")
     if not patch.created and base_text is None:
         raise ForgeError(ErrorCode.INVALID_REQUEST, f"patch edits {patch.path}, which does not exist")
-    old_lines = [] if base_text is None else base_text.splitlines()
+    old_lines = [] if base_text is None else split_lines(base_text)
     ends_with_newline = base_text is None or base_text.endswith("\n")
     output: list[str] = []
     cursor = 0

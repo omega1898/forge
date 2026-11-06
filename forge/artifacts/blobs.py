@@ -127,6 +127,22 @@ class BlobStore:
                 )
         return bytes(data)
 
+    def read_head(self, digest: str, *, max_bytes: int) -> tuple[bytes, int, bool]:
+        """(bytes, total size, complete): the whole blob, verified, when it fits; else its first max_bytes.
+
+        A partial read is not checked against the digest (that would mean reading a
+        multi-gigabyte model file to show its header); readers say it is partial.
+        """
+        path = self._path(digest)
+        try:
+            size = path.stat().st_size
+        except FileNotFoundError:
+            raise ForgeError(ErrorCode.ARTIFACT_MISSING, f"blob {digest} is not in the store") from None
+        if size <= max_bytes:
+            return self.read_bytes(digest, max_bytes=max_bytes), size, True
+        with open(path, "rb") as handle:
+            return handle.read(max_bytes), size, False
+
     def verify(self, digest: str) -> bool:
         try:
             for _ in self.iter_verified(digest):

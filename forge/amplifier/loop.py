@@ -25,16 +25,23 @@ from typing import Any
 
 from forge.contracts.digests import digest_json
 from forge.contracts.errors import ForgeError
+from forge.formats import views
+from forge.formats.checks import Problem, check, new_problems
+from forge.formats.project import Projection, project, restore
+from forge.formats.registry import detect
+from forge.formats.text import decode, encode
 from forge.gateway.contracts import Message
 from forge.gateway.proposals import AgentProposal
 from forge.gateway.schema_subset import flat_schema
 from forge.workspace import visibility
 from forge.workspace.candidates import create_candidate
-from forge.workspace.patches import apply_file_patch, parse_patch
+from forge.workspace.patches import FilePatch, apply_file_patch, parse_patch
 from forge.workspace.snapshot import load_manifest
 
 READ_TOOLS = ("read_file", "search_code", "list_files")
 MAX_OBSERVATION = 2000
+MAX_EDITABLE = 2 * 1024 * 1024    # a text file larger than this is not patched
+MAX_VIEWED = 16 * 1024 * 1024     # bytes a reader may look at to summarize a document or binary
 
 
 @dataclass
@@ -64,8 +71,35 @@ class TaskAssistant:
         snapshot = self.controller.store.snapshot(snapshot_id)
         return {entry.path: entry for entry in load_manifest(self.controller.blobs, snapshot.manifest_digest).entries}
 
-    def _read(self, digest: str) -> str:
-        return self.controller.blobs.read_bytes(digest, max_bytes=2 * 1024 * 1024).decode("utf-8", "replace")
+    def _edit(self, patch: FilePatch, entry: Any) -> tuple[bytes | None, list[Problem], str]:  # noqa: ANN401
+        """Apply one file's patch through its format: (new bytes or None for a deletion, new problems, note).
+
+        The patch was written against the model's view (secrets masked, same lines), so it is applied to that
+        view, masked lines are restored, and the text is written back in the file's own encoding, byte order
+        mark and line endings. Raises ValueError (or ForgeError) with a reason the model can act on.
+        """
+        base = None if entry is None else self.controller.blobs.read_bytes(entry.digest, max_bytes=MAX_EDITABLE)
+        fmt = detect(patch.path, (base or b"")[:8192])
+        if fmt.sensitive:
+            raise ValueError(f"{patch.path} is a {fmt.title}, which FORGE never shows or edits")
+        if fmt.kind != "text":
+            raise ValueError(f"{patch.path} is a {fmt.title}, which is not edited as text; ask the person to change "
+                             "it, or change the text sources it is made from")
+        if base is None:
+            edited = apply_file_patch(None, patch)
+            data = encode(restore(edited or "", Projection(view="")), None, fmt)
+            before = None
+        else:
+            decoded = decode(base, fmt)
+            projection = project(decoded.text, fmt)
+            edited = apply_file_patch(projection.view, patch)
+            if edited is None:
+                return None, [], ""
+            data = encode(restore(edited, projection), decoded, fmt)
+            before = check(fmt, decoded, patch.path)
+        after = check(fmt, decode(data, fmt), patch.path)
+        note = f"{patch.path}: {after.reason}" if after.status == "not_checked" and fmt.check else ""
+        return data, new_problems(before, after), note
 
     def _observe(self, proposal: AgentProposal, snapshot_id: str) -> str:
         """Read-only tools, all behind one filter: the protected evaluation is never shown (visibility.py)."""
@@ -79,8 +113,12 @@ class TaskAssistant:
         if proposal.tool_id == "read_file" and args and args[0] in files:
             if args[0] not in visible:
                 return f"{args[0]}: {visibility.HIDDEN_NOTICE}"
-            data = self.controller.blobs.read_bytes(files[args[0]].digest, max_bytes=2 * 1024 * 1024)
-            return (visibility.model_text(args[0], data) or visibility.HIDDEN_NOTICE)[:MAX_OBSERVATION]
+            if args[0] == visibility.PROJECT_FILE:
+                data = self.controller.blobs.read_bytes(files[args[0]].digest, max_bytes=2 * 1024 * 1024)
+                return visibility.project_view(data)[:MAX_OBSERVATION]
+            # Every other file through its format: text with secrets masked, documents and binaries summarized.
+            head, size, complete = self.controller.blobs.read_head(files[args[0]].digest, max_bytes=MAX_VIEWED)
+            return views.view(args[0], head, size=size, complete=complete).render(args[0])[:MAX_OBSERVATION]
         if proposal.tool_id == "search_code" and args:
             digest = self.controller.store.snapshot(snapshot_id).manifest_digest
             self.index.build(load_manifest(self.controller.blobs, digest), digest, self.controller.blobs,
@@ -158,26 +196,37 @@ class TaskAssistant:
         files = self._files(base_snapshot_id)
         try:
             patches = parse_patch(proposal.patch or "")
-            new_files = {}
-            deletions = []
-            for patch in patches:
-                base_text = self._read(files[patch.path].digest) if patch.path in files else None
-                text = apply_file_patch(base_text, patch)
-                if text is None:
-                    deletions.append(patch.path)
-                else:
-                    new_files[patch.path] = text.encode("utf-8")
         except Exception as error:  # noqa: BLE001 - any patch problem is reported back, nothing is built
             report.observations.append(f"patch rejected: {str(error)[:300]}")
             return [f"patch rejected: {str(error)[:300]}"]
-        touched = sorted({p.path for p in patches} | set(new_files) | set(deletions))
-        protected = [path for path in touched if visibility.is_protected(path)]
+        protected = sorted({patch.path for patch in patches if visibility.is_protected(patch.path)})
         if protected:
             # Tests and evaluator files define success; an implementation change may not edit them.
             message = (f"patch rejected: it changes {protected}, which define what correct means. Change the "
                        "implementation only. If a test looks wrong, stop and ask the person (needs_user).")
             report.observations.append(message)
             return [message]
+        new_files: dict[str, bytes] = {}
+        deletions: list[str] = []
+        problems: list[str] = []
+        try:
+            for patch in patches:
+                data, found, note = self._edit(patch, files.get(patch.path))
+                if data is None:
+                    deletions.append(patch.path)
+                else:
+                    new_files[patch.path] = data
+                problems += [p.render(patch.path) for p in found if p.severity == "error"]
+                report.observations += [f"format warning: {p.render(patch.path)}" for p in found
+                                        if p.severity == "warning"] + ([note] if note else [])
+        except Exception as error:  # noqa: BLE001 - any patch problem is reported back, nothing is built
+            report.observations.append(f"patch rejected: {str(error)[:300]}")
+            return [f"patch rejected: {str(error)[:300]}"]
+        if problems:
+            # The syntax gate: a file the edit leaves unparseable is never built or tested.
+            message = "patch rejected: the edited files no longer parse:\n" + "\n".join(problems[:10])
+            report.observations.append(message[:1500])
+            return problems[:10]
         candidate = create_candidate(self.controller, base_snapshot_id, new_files, deletions=tuple(deletions))
         report.candidates.append(candidate["snapshot_id"])
         outcome = self.assessment.assess_black_box(criterion_id, candidate["snapshot_id"])

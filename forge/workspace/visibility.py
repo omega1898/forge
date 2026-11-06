@@ -114,4 +114,7 @@ def model_text(path: str, data: bytes, *, digest: str | None = None,
         return None
     if path == PROJECT_FILE:
         return project_view(data)
-    return data.decode("utf-8", "replace")
+    # The format layer: secrets masked, documents and binaries summarized.
+    from forge.formats.views import view
+
+    return view(path, data).render(path)
