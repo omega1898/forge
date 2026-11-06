@@ -371,3 +371,125 @@ def test_the_quality_gate_rejects_a_passing_patch_that_breaks_a_standard(rig) ->
     assert any(o.startswith("quality gate rejected the candidate: 1 new") for o in report.observations)
     second_prompt = [c for c in rig["controller"].store.model_calls() if c["slot_id"] == "next_step"][-1]
     assert second_prompt["status"] == "valid"
+
+
+# ------------------------------------------------ what the model may see --
+
+
+def _look(assistant, snapshot_id: str, tool_id: str, *arguments: str) -> str:  # noqa: ANN001
+    from forge.gateway.proposals import AgentProposal
+
+    return assistant._observe(AgentProposal(action="observe", rationale="look", tool_id=tool_id,
+                                            tool_arguments=list(arguments)), snapshot_id)
+
+
+def test_no_read_tool_shows_the_model_the_protected_evaluation(rig) -> None:  # noqa: ANN001
+    """list_files, read_file and search_code all pass through visibility.py, whatever the letter case."""
+    from forge.workspace.visibility import HIDDEN_NOTICE
+
+    suite_bytes = rig["controller"].blobs.read_bytes(rig["suite"]["suite_digest"], max_bytes=10**6)
+    snapshot = create_candidate(rig["controller"], rig["base"], {
+        "hidden_tests/case_one.txt": b"SECRETHIDDENCASE\n",
+        "Evaluation/expected.json": b'{"SECRETEVALUATOR": 1}\n',
+        "notes/answers.json": suite_bytes,  # a copy of the admitted suite, under an innocent name
+        "forge.toml": b'[build]\ntoolchain = "python"\nentry = "reader.py"\n\n'
+                      b'[[tests]]\nid = "short"\nargs = ["x"]\nstdout = "SECRETEXPECTED\\n"\n',
+    })["snapshot_id"]
+    assistant = _assistant(rig)
+    hidden = ("hidden_tests/case_one.txt", "Evaluation/expected.json", "notes/answers.json")
+
+    listing = _look(assistant, snapshot, "list_files").splitlines()
+    assert {"reader.py", "forge.toml", "tests/test_reader.py"} <= set(listing)
+    assert not set(hidden) & set(listing)
+    for path in hidden:
+        assert _look(assistant, snapshot, "read_file", path) == f"{path}: {HIDDEN_NOTICE}"
+    project = _look(assistant, snapshot, "read_file", "forge.toml")
+    assert 'args = ["x"]' in project and "SECRETEXPECTED" not in project
+    for query in ("SECRETHIDDENCASE", "SECRETEVALUATOR", "SECRETEXPECTED", "acceptance cases packet reader"):
+        hits = _look(assistant, snapshot, "search_code", query)
+        assert not any(path in hits for path in (*hidden, "forge.toml")), (query, hits)
+    assert "reader.py" in _look(assistant, snapshot, "search_code", "packets")  # search itself still works
+    # The index the loop built quarantines the suite copy on its own (one layer, tested alone).
+    digest = rig["controller"].store.snapshot(snapshot).manifest_digest
+    assert "notes/answers.json" not in [r.path for r in assistant.index.search(digest, "acceptance cases packet")]
+
+
+def test_the_loop_filters_search_hits_even_from_an_index_that_leaks(rig) -> None:  # noqa: ANN001
+    """The other layer alone: whatever the index returns, a hidden path never reaches the model."""
+    from forge.knowledge.index import SourceRef
+
+    snapshot = create_candidate(rig["controller"], rig["base"], {"hidden_tests/case.txt": b"x\n"})["snapshot_id"]
+    assistant = _assistant(rig)
+
+    class LeakyIndex:
+        def build(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            return {}
+
+        def search(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            return [SourceRef(path=path, start_line=1, end_line=1, kind="chunk", name=path, score=1.0, reason="r")
+                    for path in ("hidden_tests/case.txt", "reader.py")]
+
+    assistant.index = LeakyIndex()
+    assert _look(assistant, snapshot, "search_code", "anything") == "reader.py:1 chunk reader.py"
+
+
+def test_a_patch_to_tests_or_the_project_file_is_refused_with_feedback_not_a_crash(rig) -> None:  # noqa: ANN001
+    test_text = "def test_placeholder():\n    assert True\n"
+    weaken = diff("tests/test_reader.py", test_text, "def test_placeholder():\n    pass\n")
+    other_case = diff("Tests/test_extra.py", None, "def test_extra():\n    pass\n")  # one folder on Windows and macOS
+    project_file = diff("forge.toml", None, '[build]\ntoolchain = "python"\n')
+    assistant = _assistant(
+        rig,
+        {"action": "propose_patch", "rationale": "the test is wrong", "patch": weaken,
+         "affected_paths": ["reader.py"]},  # the claim is ignored; the patch's own paths are checked
+        {"action": "propose_patch", "rationale": "add a test", "patch": other_case,
+         "affected_paths": ["Tests/test_extra.py"]},
+        {"action": "propose_patch", "rationale": "configure the build", "patch": project_file,
+         "affected_paths": ["forge.toml"]},
+        {"action": "needs_user", "rationale": "stuck", "question": "Is the placeholder test wrong?"})
+    report = assistant.run(_task(rig), rig["base"], rig["criterion_id"], "fix it")
+    assert report.status == "waiting_for_user"
+    assert report.candidates == []  # refused before anything was built or run
+    refused = [o for o in report.observations if o.startswith("patch rejected: it changes")]
+    assert [o.split("[")[1].split("]")[0] for o in refused] == [
+        "'tests/test_reader.py'", "'Tests/test_extra.py'", "'forge.toml'"]
+    # Each refusal is in the model's next prompt, so it learns why instead of seeing the loop stop.
+    prompts = [r.messages[-1].content for r in assistant.gateway.adapters["fake"].requests]
+    assert "define what correct means" in prompts[-1] and "needs_user" in prompts[-1]
+
+
+@needs_sandbox
+def test_after_a_refused_test_edit_the_model_can_still_fix_the_code(rig) -> None:  # noqa: ANN001
+    weaken = diff("tests/test_reader.py", "def test_placeholder():\n    assert True\n", "")
+    assistant = _assistant(
+        rig,
+        {"action": "propose_patch", "rationale": "delete the test", "patch": weaken,
+         "affected_paths": ["tests/test_reader.py"]},
+        {"action": "propose_patch", "rationale": "check payload length", "patch": diff("reader.py", BUGGY, CORRECT),
+         "affected_paths": ["reader.py"]})
+    report = assistant.run(_task(rig), rig["base"], rig["criterion_id"], "reject truncated payloads")
+    assert report.status == "ready_for_review" and len(report.candidates) == 1
+    proposal = rig["controller"].store.proposal(report.proposal_id)
+    assert [c["path"] for c in proposal["changes"]] == ["reader.py"]
+
+
+@needs_sandbox
+def test_a_refused_proposal_is_feedback_for_the_next_turn(rig, monkeypatch) -> None:  # noqa: ANN001
+    controller = rig["controller"]
+    original = controller.apply_command
+
+    def refuse_proposals(command, actor):  # noqa: ANN001, ANN202
+        if command["method"] == "proposal.create":
+            raise ForgeError(ErrorCode.STALE_VERSION, "the task was cancelled while the candidate ran")
+        return original(command, actor)
+
+    monkeypatch.setattr(controller, "apply_command", refuse_proposals)
+    assistant = _assistant(
+        rig,
+        {"action": "propose_patch", "rationale": "check payload length", "patch": diff("reader.py", BUGGY, CORRECT),
+         "affected_paths": ["reader.py"]},
+        {"action": "needs_user", "rationale": "cannot propose", "question": "Was the task cancelled?"})
+    report = assistant.run(_task(rig), rig["base"], rig["criterion_id"], "reject truncated payloads")
+    assert report.status == "waiting_for_user" and report.proposal_id is None
+    assert report.observations[-1] == ("the candidate passed its tests but could not become a proposal: "
+                                       "the task was cancelled while the candidate ran")

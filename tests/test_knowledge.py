@@ -217,3 +217,47 @@ def test_project_facts_name_their_evidence(project) -> None:  # noqa: ANN001
     assert fact_value(facts, "dependencies.lockfiles") == ["uv.lock"]
     assert fact_value(facts, "release.feature_flags") is None  # no flag library: no flag checklist items
     assert fact_value(facts, "language.python") >= 3
+
+
+def test_an_index_built_with_fewer_protections_is_rebuilt_not_reused(project) -> None:  # noqa: ANN001
+    """An index made without the suite's digest must not serve a reader that hides it (visibility.py)."""
+    controller, index = project["controller"], project["index"]
+    digest = controller.store.snapshot(project["snapshot_id"]).manifest_digest
+    manifest = load_manifest(controller.blobs, digest)
+    open_build = index.build(manifest, digest, controller.blobs, protected_digests=set())
+    assert "notes/answers.json" not in open_build["evaluation_isolation"]
+    assert "notes/answers.json" in [r.path for r in index.search(digest, "SECRET ANSWER")]
+    suites = {row[0] for row in controller.store.conn.execute(
+        "SELECT digest FROM artifacts WHERE artifact_kind = 'evaluator_suite'")}
+    strict_build = index.build(manifest, digest, controller.blobs, protected_digests=suites)
+    assert "notes/answers.json" in strict_build["evaluation_isolation"]
+    assert "notes/answers.json" not in [r.path for r in index.search(digest, "SECRET ANSWER")]
+
+
+def test_ada_and_fortran_are_searchable_and_the_project_file_is_not(project) -> None:  # noqa: ANN001
+    source, controller = project["source"], project["controller"]
+    (source / "src" / "stall.adb").write_text("procedure Stall_Warning is\nbegin\n   null;\nend Stall_Warning;\n")
+    (source / "src" / "stall.ads").write_text("package Stall_Limits is\n   Critical_Angle : constant := 18;\nend;\n")
+    (source / "src" / "lift.f90").write_text("subroutine lift_coefficient(alpha)\n  real :: alpha\nend subroutine\n")
+    (source / "forge.toml").write_text('[[tests]]\nid = "t"\nargs = ["1"]\nstdout = "SECRETEXPECTED\\n"\n')
+    snapshot_id = controller.apply_command(command("workspace.capture", {"source_root": "main"},
+                                                   project_id=project["project_id"]), project["human"]).result["snapshot_id"]
+    digest = controller.store.snapshot(snapshot_id).manifest_digest
+    quarantined = project["index"].build(load_manifest(controller.blobs, digest), digest, controller.blobs)
+    assert "forge.toml" in quarantined["evaluation_isolation"]
+    for query, path in (("Stall_Warning", "src/stall.adb"), ("Critical_Angle", "src/stall.ads"),
+                        ("lift_coefficient", "src/lift.f90")):
+        assert path in [r.path for r in project["index"].search(digest, query)], query
+    assert project["index"].search(digest, "SECRETEXPECTED") == []
+
+
+def test_the_index_quarantines_evaluator_folders_in_any_letter_case(project) -> None:  # noqa: ANN001
+    source, controller = project["source"], project["controller"]
+    (source / "Hidden_Tests").mkdir()
+    (source / "Hidden_Tests" / "case.txt").write_text("SECRETCASEVALUE\n")
+    snapshot_id = controller.apply_command(command("workspace.capture", {"source_root": "main"},
+                                                   project_id=project["project_id"]), project["human"]).result["snapshot_id"]
+    digest = controller.store.snapshot(snapshot_id).manifest_digest
+    quarantined = project["index"].build(load_manifest(controller.blobs, digest), digest, controller.blobs)
+    assert "Hidden_Tests/case.txt" in quarantined["evaluation_isolation"]
+    assert project["index"].search(digest, "SECRETCASEVALUE") == []

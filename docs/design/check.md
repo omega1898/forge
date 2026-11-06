@@ -68,6 +68,34 @@ The tests in `forge.toml` are only a proposal:
 This is what makes a passing check mean something: code cannot pass by
 weakening the tests it is judged by.
 
+## What the assistant may see and change
+
+Every documented case of an agent gaming its evaluation (special-casing
+tests, deleting a detector's markers, reading the fix from git history) had
+one thing in common: the agent could reach what scored it. One module,
+`forge/workspace/visibility.py`, says what is out of reach. Every reader
+uses it: the assistant's `list_files`, `read_file` and `search_code`, the
+search index, the context builder and the controller.
+
+| Path | The model can read it | The model can change it |
+|---|---|---|
+| `evaluation/`, `.forge-eval/`, `hidden_tests/` | no: not listed, not read, not found by search | no |
+| any file whose bytes equal an admitted evaluator suite, wherever it sits | no | (not applicable) |
+| `forge.toml` | only with every expected result removed: builds, standards, test ids, arguments and requirements stay; `stdin` and input files are summarized by size and name | no |
+| `tests/`, `test/`, `conftest.py` | yes | no |
+| everything else | yes | yes, through a reviewed proposal |
+
+Paths are compared ignoring letter case and Unicode form. Windows and macOS
+disks treat `Tests/x` and `tests/x` as one file, so a check that only
+matched the exact spelling could be passed by changing the case.
+
+A patch that touches a path the model may not change is refused before
+anything is built. The refusal goes into the model's next prompt: change the
+implementation only, and if a test looks wrong, ask the person. A failing
+case reports which case failed and why ("stdout text differs from the
+expected text"), never the expected value. A change to the tests or
+`forge.toml` is a separate `test_change` proposal that a person reviews.
+
 ## Coverage (Ada, Fortran, C, C++ with GCC 14)
 
 `forge check coverage` builds the project with `--coverage

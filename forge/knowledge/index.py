@@ -18,6 +18,7 @@ or that sits under a protected path, is quarantined, not indexed.
 from __future__ import annotations
 
 import ast
+import json
 import os
 import re
 import sqlite3
@@ -27,12 +28,16 @@ from pathlib import Path
 from forge.artifacts.blobs import BlobStore
 from forge.contracts.digests import sha256_digest
 from forge.workspace.snapshot import Manifest
+from forge.workspace.visibility import INDEX_HIDDEN, path_key
 
 CHUNK_LINES = 40
 MAX_INDEXED_FILE = 1024 * 1024
 TEXT_SUFFIXES = (".py", ".md", ".txt", ".toml", ".cfg", ".ini", ".json", ".yaml", ".yml", ".rst", ".c", ".h",
-                 ".cpp", ".hpp", ".cc", ".sh", ".sql", ".java", ".cbl", ".cob", ".cpy", ".ml", ".mli", ".js", ".ts")
-DEFAULT_PROTECTED = ("evaluation/", ".forge-eval/", "hidden_tests/")
+                 ".cpp", ".hpp", ".cc", ".cxx", ".hh", ".sh", ".bash", ".sql", ".java", ".cbl", ".cob", ".cpy", ".ml",
+                 ".mli", ".js", ".ts", ".adb", ".ads", ".ada", ".f", ".for", ".f77", ".f90", ".f95", ".f03", ".f08",
+                 ".go", ".rs", ".cs", ".asm", ".s")
+# Evaluator files, hidden tests and forge.toml (whose expected results would leak through search hits).
+DEFAULT_PROTECTED = INDEX_HIDDEN
 
 
 @dataclass(frozen=True)
@@ -61,15 +66,20 @@ class SnapshotIndex:
         """Build (or reuse) the index for one snapshot. Returns quarantined paths by reason."""
         final = self._path(manifest_digest)
         quarantined: dict[str, list[str]] = {"evaluation_isolation": [], "not_text": [], "too_large": []}
+        protection = json.dumps({"paths": list(protected_paths), "digests": sorted(protected_digests)})
         if final.exists():
-            # Reuse: report exactly what the original build excluded.
+            # Reuse only an index built with exactly these protections; otherwise rebuild, so a
+            # build made with fewer exclusions can never serve a reader that needs more.
             db = self._connect(manifest_digest)
             try:
-                for row in db.execute("SELECT path, reason FROM quarantine ORDER BY path"):
-                    quarantined[row["reason"]].append(row["path"])
+                row = db.execute("SELECT value FROM meta WHERE key = 'protection'").fetchone()
+                if row is not None and row[0] == protection:
+                    for item in db.execute("SELECT path, reason FROM quarantine ORDER BY path"):
+                        quarantined[item["reason"]].append(item["path"])
+                    return quarantined
             finally:
                 db.close()
-            return quarantined
+            final.unlink()
         temp = final.with_suffix(f".tmp{os.getpid()}")
         temp.unlink(missing_ok=True)
         db = sqlite3.connect(str(temp))
@@ -85,8 +95,10 @@ class SnapshotIndex:
                 " end_line UNINDEXED, body);"
             )
             db.execute("INSERT INTO meta VALUES ('manifest_digest', ?)", (manifest_digest,))
+            db.execute("INSERT INTO meta VALUES ('protection', ?)", (protection,))
+            prefixes = tuple(path_key(prefix) for prefix in protected_paths)
             for entry in manifest.entries:
-                if entry.digest in protected_digests or entry.path.startswith(protected_paths):
+                if entry.digest in protected_digests or path_key(entry.path).startswith(prefixes):
                     quarantined["evaluation_isolation"].append(entry.path)
                     continue
                 if not entry.path.endswith(TEXT_SUFFIXES):

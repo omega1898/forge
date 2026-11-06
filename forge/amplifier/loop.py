@@ -24,9 +24,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from forge.contracts.digests import digest_json
+from forge.contracts.errors import ForgeError
 from forge.gateway.contracts import Message
 from forge.gateway.proposals import AgentProposal
 from forge.gateway.schema_subset import flat_schema
+from forge.workspace import visibility
 from forge.workspace.candidates import create_candidate
 from forge.workspace.patches import apply_file_patch, parse_patch
 from forge.workspace.snapshot import load_manifest
@@ -66,16 +68,24 @@ class TaskAssistant:
         return self.controller.blobs.read_bytes(digest, max_bytes=2 * 1024 * 1024).decode("utf-8", "replace")
 
     def _observe(self, proposal: AgentProposal, snapshot_id: str) -> str:
+        """Read-only tools, all behind one filter: the protected evaluation is never shown (visibility.py)."""
         files = self._files(snapshot_id)
+        suites = visibility.suite_digests(self.controller.store)
+        visible = {path: entry for path, entry in files.items()
+                   if not visibility.is_hidden(path, entry.digest, suites)}
         args = proposal.tool_arguments
         if proposal.tool_id == "list_files":
-            return "\n".join(sorted(files))[:MAX_OBSERVATION]
+            return "\n".join(sorted(visible))[:MAX_OBSERVATION]
         if proposal.tool_id == "read_file" and args and args[0] in files:
-            return self._read(files[args[0]].digest)[:MAX_OBSERVATION]
+            if args[0] not in visible:
+                return f"{args[0]}: {visibility.HIDDEN_NOTICE}"
+            data = self.controller.blobs.read_bytes(files[args[0]].digest, max_bytes=2 * 1024 * 1024)
+            return (visibility.model_text(args[0], data) or visibility.HIDDEN_NOTICE)[:MAX_OBSERVATION]
         if proposal.tool_id == "search_code" and args:
             digest = self.controller.store.snapshot(snapshot_id).manifest_digest
-            self.index.build(load_manifest(self.controller.blobs, digest), digest, self.controller.blobs)
-            refs = self.index.search(digest, " ".join(args), limit=10)
+            self.index.build(load_manifest(self.controller.blobs, digest), digest, self.controller.blobs,
+                             protected_digests=set(suites))
+            refs = [r for r in self.index.search(digest, " ".join(args), limit=10) if r.path in visible]
             return "\n".join(f"{r.path}:{r.start_line} {r.kind} {r.name}" for r in refs)[:MAX_OBSERVATION]
         return f"tool {proposal.tool_id!r} with these arguments is not available (read-only tools: {', '.join(READ_TOOLS)})"
 
@@ -160,6 +170,14 @@ class TaskAssistant:
         except Exception as error:  # noqa: BLE001 - any patch problem is reported back, nothing is built
             report.observations.append(f"patch rejected: {str(error)[:300]}")
             return [f"patch rejected: {str(error)[:300]}"]
+        touched = sorted({p.path for p in patches} | set(new_files) | set(deletions))
+        protected = [path for path in touched if visibility.is_protected(path)]
+        if protected:
+            # Tests and evaluator files define success; an implementation change may not edit them.
+            message = (f"patch rejected: it changes {protected}, which define what correct means. Change the "
+                       "implementation only. If a test looks wrong, stop and ask the person (needs_user).")
+            report.observations.append(message)
+            return [message]
         candidate = create_candidate(self.controller, base_snapshot_id, new_files, deletions=tuple(deletions))
         report.candidates.append(candidate["snapshot_id"])
         outcome = self.assessment.assess_black_box(criterion_id, candidate["snapshot_id"])
@@ -170,14 +188,20 @@ class TaskAssistant:
                                            "coding-standard violation(s)" if gate.new else gate.feedback[0][:300])
                 return gate.feedback
         if outcome["result"] == "pass":
-            created = self.controller.apply_command(
-                {"schema_version": "1.0", "method": "proposal.create",
-                 "project_id": self.controller.store.project().project_id,
-                 "idempotency_key": f"proposal-{candidate['snapshot_id']}",
-                 "params": {"task_id": task_id, "base_snapshot_id": base_snapshot_id,
-                            "candidate_snapshot_id": candidate["snapshot_id"]}},
-                self.controller.system_actor,
-            ).result
+            try:
+                created = self.controller.apply_command(
+                    {"schema_version": "1.0", "method": "proposal.create",
+                     "project_id": self.controller.store.project().project_id,
+                     "idempotency_key": f"proposal-{candidate['snapshot_id']}",
+                     "params": {"task_id": task_id, "base_snapshot_id": base_snapshot_id,
+                                "candidate_snapshot_id": candidate["snapshot_id"]}},
+                    self.controller.system_actor,
+                ).result
+            except ForgeError as error:
+                # A refusal is feedback for the next turn, never a crash of the loop.
+                message = f"the candidate passed its tests but could not become a proposal: {error.message}"[:500]
+                report.observations.append(message)
+                return [message]
             report.proposal_id, report.proposal_digest = created["proposal_id"], created["proposal_digest"]
             return "ready"
         return [f"case {c.case_id}: {'; '.join(c.reasons)}" for c in outcome["run"].cases if c.outcome != "pass"] \
