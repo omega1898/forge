@@ -261,3 +261,22 @@ def test_the_index_quarantines_evaluator_folders_in_any_letter_case(project) -> 
     quarantined = project["index"].build(load_manifest(controller.blobs, digest), digest, controller.blobs)
     assert "Hidden_Tests/case.txt" in quarantined["evaluation_isolation"]
     assert project["index"].search(digest, "SECRETCASEVALUE") == []
+
+
+def test_secrets_never_enter_the_index_or_the_context(project) -> None:  # noqa: ANN001
+    source, controller = project["source"], project["controller"]
+    (source / "src" / "packet_reader" / "settings.yaml").write_text(
+        "database:\n  host: packets.internal\n  password: CorrectHorseBatteryStaple\n")
+    (source / "src" / "packet_reader" / "upload.py").write_text(
+        'def parse_packets_upload():\n    return "AKIAABCDEFGHIJKLMNOP"\n')
+    snapshot_id = controller.apply_command(command("workspace.capture", {"source_root": "main"},
+                                                   project_id=project["project_id"]), project["human"]).result["snapshot_id"]
+    digest = controller.store.snapshot(snapshot_id).manifest_digest
+    project["index"].build(load_manifest(controller.blobs, digest), digest, controller.blobs)
+    assert project["index"].search(digest, "CorrectHorseBatteryStaple") == []
+    assert project["index"].search(digest, "AKIAABCDEFGHIJKLMNOP") == []
+    assert "src/packet_reader/settings.yaml" in [r.path for r in project["index"].search(digest, "packets internal")]
+    bundle = project["builder"].build(project["task_id"], snapshot_id, budget_tokens=4000,
+                                      query="parse_packets_upload database password")
+    rendered = bundle.render()
+    assert "AKIAABCDEFGHIJKLMNOP" not in rendered and "CorrectHorseBatteryStaple" not in rendered

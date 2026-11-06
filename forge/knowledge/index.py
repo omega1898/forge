@@ -23,19 +23,24 @@ import os
 import re
 import sqlite3
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from forge.artifacts.blobs import BlobStore
 from forge.contracts.digests import sha256_digest
+from forge.formats.project import project
+from forge.formats.registry import detect, text_names, text_suffixes
+from forge.formats.text import NotText, decode
+from forge.workspace.patches import split_lines
 from forge.workspace.snapshot import Manifest
 from forge.workspace.visibility import INDEX_HIDDEN, path_key
 
 CHUNK_LINES = 40
 MAX_INDEXED_FILE = 1024 * 1024
-TEXT_SUFFIXES = (".py", ".md", ".txt", ".toml", ".cfg", ".ini", ".json", ".yaml", ".yml", ".rst", ".c", ".h",
-                 ".cpp", ".hpp", ".cc", ".cxx", ".hh", ".sh", ".bash", ".sql", ".java", ".cbl", ".cob", ".cpy", ".ml",
-                 ".mli", ".js", ".ts", ".adb", ".ads", ".ada", ".f", ".for", ".f77", ".f90", ".f95", ".f03", ".f08",
-                 ".go", ".rs", ".cs", ".asm", ".s")
+# Every text format in the catalogue (forge/formats/registry.py), by suffix and by exact name.
+TEXT_SUFFIXES = text_suffixes()
+TEXT_NAMES = frozenset(text_names())
+# Bumped when what is stored changes, so an older index is rebuilt rather than reused.
+INDEX_POLICY = 2  # 2: text is decoded by forge.formats and indexed with secrets masked
 # Evaluator files, hidden tests and forge.toml (whose expected results would leak through search hits).
 DEFAULT_PROTECTED = INDEX_HIDDEN
 
@@ -66,7 +71,8 @@ class SnapshotIndex:
         """Build (or reuse) the index for one snapshot. Returns quarantined paths by reason."""
         final = self._path(manifest_digest)
         quarantined: dict[str, list[str]] = {"evaluation_isolation": [], "not_text": [], "too_large": []}
-        protection = json.dumps({"paths": list(protected_paths), "digests": sorted(protected_digests)})
+        protection = json.dumps({"paths": list(protected_paths), "digests": sorted(protected_digests),
+                                 "policy": INDEX_POLICY})
         if final.exists():
             # Reuse only an index built with exactly these protections; otherwise rebuild, so a
             # build made with fewer exclusions can never serve a reader that needs more.
@@ -101,19 +107,25 @@ class SnapshotIndex:
                 if entry.digest in protected_digests or path_key(entry.path).startswith(prefixes):
                     quarantined["evaluation_isolation"].append(entry.path)
                     continue
-                if not entry.path.endswith(TEXT_SUFFIXES):
+                if not entry.path.casefold().endswith(TEXT_SUFFIXES) and \
+                        PurePosixPath(entry.path).name.casefold() not in TEXT_NAMES:
                     quarantined["not_text"].append(entry.path)
                     continue
                 if entry.size > MAX_INDEXED_FILE:
                     quarantined["too_large"].append(entry.path)
                     continue
                 data = blobs.read_bytes(entry.digest, max_bytes=MAX_INDEXED_FILE)
-                try:
-                    text = data.decode("utf-8")
-                except UnicodeDecodeError:
+                fmt = detect(entry.path, data[:8192])
+                if fmt.kind != "text" or fmt.sensitive:
                     quarantined["not_text"].append(entry.path)
                     continue
-                lines = text.splitlines()
+                try:
+                    # The stored text is the model's view: secrets masked, so search can never return them.
+                    text = project(decode(data, fmt).text, fmt).view
+                except NotText:
+                    quarantined["not_text"].append(entry.path)
+                    continue
+                lines = split_lines(text)
                 db.execute("INSERT INTO files VALUES (?, ?, ?)", (entry.path, entry.digest, len(lines)))
                 for start in range(0, max(len(lines), 1), CHUNK_LINES):
                     body = "\n".join(lines[start:start + CHUNK_LINES])

@@ -537,6 +537,9 @@ def main(argv: list[str] | None = None) -> int:
     check.add_argument("--source", default=".", help="init: the project folder")
     check.add_argument("--force", action="store_true", help="init: replace an existing forge.toml")
     check.set_defaults(handler=cmd_check)
+    from forge.formats.cli import add_parser as add_formats
+
+    add_formats(sub)
 
     args = parser.parse_args(argv)
     try:

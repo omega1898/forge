@@ -493,3 +493,70 @@ def test_a_refused_proposal_is_feedback_for_the_next_turn(rig, monkeypatch) -> N
     assert report.status == "waiting_for_user" and report.proposal_id is None
     assert report.observations[-1] == ("the candidate passed its tests but could not become a proposal: "
                                        "the task was cancelled while the candidate ran")
+
+
+# ------------------------------------------------ files in every format --
+
+
+def _formats_base(rig) -> str:  # noqa: ANN001
+    import zipfile as _zipfile
+    from io import BytesIO
+
+    docx = BytesIO()
+    with _zipfile.ZipFile(docx, "w") as archive:
+        archive.writestr("word/document.xml", '<w:document xmlns:w="w"><w:body><w:p><w:r><w:t>Plan text</w:t></w:r>'
+                                              "</w:p></w:body></w:document>")
+    return create_candidate(rig["controller"], rig["base"], {
+        ".env": b'DB_HOST=db\nDB_PASSWORD="s3cr3t!"\nPORT=5432\n',
+        "run.bat": b"@echo off\r\ngoto :start\r\n:start\r\necho old\r\n",
+        "app.properties": "greeting=Grüße\nname=old\n".encode("latin-1"),
+        "config.json": b'{"retries": 3}\n',
+        "plan.docx": docx.getvalue(),
+    })["snapshot_id"]
+
+
+def test_the_model_reads_every_format_through_its_view(rig) -> None:  # noqa: ANN001
+    base = _formats_base(rig)
+    assistant = _assistant(rig)
+    env = _look(assistant, base, "read_file", ".env")
+    assert "s3cr3t!" not in env and "DB_PASSWORD=\"[FORGE-REDACTED-1: value]\"" in env and "PORT=5432" in env
+    assert _look(assistant, base, "read_file", "plan.docx").startswith("Plan text")
+    assert "CRLF line endings; edits keep them" in _look(assistant, base, "read_file", "run.bat")
+
+
+def test_edits_keep_each_files_encoding_line_endings_and_secrets(rig) -> None:  # noqa: ANN001
+    base = _formats_base(rig)
+    assistant = _assistant(rig)
+    files = assistant._files(base)
+
+    def edit(path: str, old: str, new: str) -> bytes:
+        view = _look(assistant, base, "read_file", path).split("\n-- FORGE notes")[0]
+        [patch] = parse_patch(diff(path, view, view.replace(old, new)))
+        data, problems, _note = assistant._edit(patch, files[path])
+        assert problems == []
+        return data
+
+    assert edit("run.bat", "old", "new") == b"@echo off\r\ngoto :start\r\n:start\r\necho new\r\n"
+    assert edit("app.properties", "name=old", "name=new") == "greeting=Grüße\nname=new\n".encode("latin-1")
+    assert edit(".env", "5432", "6543") == b'DB_HOST=db\nDB_PASSWORD="s3cr3t!"\nPORT=6543\n'
+
+
+def test_the_syntax_gate_refuses_a_broken_config_before_anything_is_built(rig) -> None:  # noqa: ANN001
+    base = _formats_base(rig)
+    assistant = _assistant(rig)
+    from forge.gateway.proposals import AgentProposal
+
+    def attempt(patch: str, path: str):  # noqa: ANN202
+        return assistant.try_proposal(AgentProposal(action="propose_patch", rationale="r", patch=patch,
+                                                    affected_paths=[path]), _task(rig), base, rig["criterion_id"])
+
+    broken = attempt(diff("config.json", '{"retries": 3}\n', '{"retries": 3,}\n'), "config.json")
+    assert broken.status == "rejected" and broken.candidates == []
+    assert "config.json:1: error: JSON syntax error" in broken.detail
+    secret = attempt(diff(".env", 'DB_PASSWORD="[FORGE-REDACTED-1: value]"\n', 'DB_PASSWORD="guess"\n'), ".env")
+    assert secret.status == "rejected" and "does not apply" in secret.detail  # the real line is not the view's
+    view = 'DB_HOST=db\nDB_PASSWORD="[FORGE-REDACTED-1: value]"\nPORT=5432\n'
+    rewrite = attempt(diff(".env", view, view.replace("value]", "value] # rotated")), ".env")
+    assert rewrite.status == "rejected" and "masked value" in rewrite.detail
+    document = attempt(diff("plan.docx", "Plan text\n", "New text\n"), "plan.docx")
+    assert document.status == "rejected" and "not edited as text" in document.detail

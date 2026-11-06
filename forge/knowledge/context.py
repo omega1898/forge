@@ -27,7 +27,11 @@ from forge.artifacts.blobs import BlobStore
 from forge.contracts.base import StrictModel
 from forge.contracts.digests import Digest, canonical_json_bytes, sha256_digest
 from forge.contracts.errors import ErrorCode, ForgeError
+from forge.formats.project import project
+from forge.formats.registry import detect
+from forge.formats.text import NotText, decode
 from forge.knowledge.index import SnapshotIndex, SourceRef
+from forge.workspace.patches import split_lines
 from forge.workspace.snapshot import load_manifest
 from forge.workspace.visibility import suite_digests
 
@@ -164,7 +168,7 @@ class ContextBuilder:
             entry = entries.get(ref.path)
             if entry is None:
                 continue
-            text, complete = self._read_lines(entry.digest, ref.start_line, ref.end_line)
+            text, complete = self._read_lines(entry.digest, ref.start_line, ref.end_line, ref.path)
             kind: SpanKind = "test" if ref.kind == "test" else ("definition" if ref.kind in ("function", "class") else "chunk")
             span = make(kind, text, ref.reason, path=ref.path, start_line=ref.start_line, end_line=ref.end_line)
             span = span.model_copy(update={"complete": complete})
@@ -183,8 +187,14 @@ class ContextBuilder:
         spans.append(span)
         return used + cost
 
-    def _read_lines(self, digest: str, start: int, end: int) -> tuple[str, bool]:
-        lines = self.blobs.read_bytes(digest, max_bytes=4 * 1024 * 1024).decode("utf-8", "replace").splitlines()
+    def _read_lines(self, digest: str, start: int, end: int, path: str = "") -> tuple[str, bool]:
+        # The model's view of the whole file (secrets masked, same line numbers), then the span.
+        data = self.blobs.read_bytes(digest, max_bytes=4 * 1024 * 1024)
+        fmt = detect(path, data[:8192])
+        try:
+            lines = split_lines(project(decode(data, fmt).text, fmt).view)
+        except NotText:
+            return f"{path}: binary, not shown", True
         selected = lines[start - 1:end]
         if len(selected) <= self.max_span_lines:
             return "\n".join(selected), True
