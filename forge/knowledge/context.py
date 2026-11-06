@@ -29,6 +29,7 @@ from forge.contracts.digests import Digest, canonical_json_bytes, sha256_digest
 from forge.contracts.errors import ErrorCode, ForgeError
 from forge.knowledge.index import SnapshotIndex, SourceRef
 from forge.workspace.snapshot import load_manifest
+from forge.workspace.visibility import suite_digests
 
 SpanKind = Literal["objective", "intent", "requirement", "criterion", "failing_evidence", "definition", "test",
                    "chunk"]
@@ -94,8 +95,7 @@ class ContextBuilder:
         self.max_span_lines = max_span_lines
 
     def protected_digests(self) -> set[str]:
-        rows = self.store.conn.execute("SELECT digest FROM artifacts WHERE artifact_kind = 'evaluator_suite'")
-        return {row[0] for row in rows}
+        return set(suite_digests(self.store))
 
     def build(self, task_id: str, snapshot_id: str, *, budget_tokens: int, query: str | None = None,
               intent_text: str | None = None) -> ContextBundle:

@@ -59,6 +59,7 @@ from forge.engine.lifecycle import is_allowed
 from forge.record.events import DomainEvent
 from forge.record.store import ProjectStore
 from forge.workspace.snapshot import CapturePolicy, CaptureResult, capture_tree
+from forge.workspace.visibility import is_protected
 
 
 @dataclass
@@ -1151,12 +1152,6 @@ def snapshot_record_candidate(ctx: HandlerContext, command: Command) -> Outcome:
     )
 
 
-# Paths an implementation proposal may not change: tests and evaluator
-# configuration define success, so changing them needs its own reviewed
-# test_change proposal (INT-T10).
-PROTECTED_PREFIXES = ("tests/", "test/", "evaluation/", ".forge-eval/", "hidden_tests/", "conftest.py")
-
-
 def proposal_create(ctx: HandlerContext, command: Command) -> Outcome:
     from forge.contracts.digests import digest_json
     from forge.workspace.snapshot import load_manifest
@@ -1181,7 +1176,9 @@ def proposal_create(ctx: HandlerContext, command: Command) -> Outcome:
                         "change": "add" if before is None else ("delete" if after is None else "modify")})
     if not changes:
         raise ForgeError(ErrorCode.INVALID_REQUEST, "the candidate makes no changes")
-    protected = [c["path"] for c in changes if c["path"].startswith(PROTECTED_PREFIXES)]
+    # Tests, evaluator files and forge.toml define success; an implementation proposal may not change them,
+    # which needs its own reviewed test_change proposal (INT-T10). visibility.py holds the one definition.
+    protected = [c["path"] for c in changes if is_protected(c["path"])]
     if protected and params.kind == "implementation":
         raise ForgeError(
             ErrorCode.PERMISSION_DENIED,
